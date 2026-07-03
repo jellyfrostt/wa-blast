@@ -1,0 +1,19 @@
+{
+  "name": "wa-blast",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "6.7.23",
+    "csv-parse": "^5.6.0",
+    "express": "^4.21.2",
+    "libsodium-wrappers": "^0.7.15",
+    "multer": "^1.4.5-lts.1",
+    "pino": "^9.6.0",
+    "qrcode": "^1.5.4",
+    "xlsx": "^0.18.5"
+  }
+}

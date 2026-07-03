@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WA Blast</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #e5e5e5; min-height: 100vh; }
+    .container { max-width: 800px; margin: 0 auto; padding: 24px; }
+    h1 { font-size: 24px; margin-bottom: 8px; }
+    .subtitle { color: #888; font-size: 14px; margin-bottom: 32px; }
+    .status-bar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: #171717; border-radius: 8px; margin-bottom: 24px; font-size: 14px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot.green { background: #22c55e; }
+    .dot.red { background: #ef4444; }
+    .dot.yellow { background: #eab308; }
+    .card { background: #171717; border: 1px solid #262626; border-radius: 12px; padding: 24px; margin-bottom: 16px; }
+    .card h2 { font-size: 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .step-num { background: #262626; color: #a3a3a3; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
+    .step-num.active { background: #22c55e; color: #000; }
+    label { font-size: 13px; color: #a3a3a3; display: block; margin-bottom: 6px; }
+    input[type="file"] { display: none; }
+    .upload-area { border: 2px dashed #333; border-radius: 8px; padding: 32px; text-align: center; cursor: pointer; transition: border-color 0.2s; }
+    .upload-area:hover { border-color: #555; }
+    .upload-area.has-file { border-color: #22c55e; border-style: solid; }
+    .upload-info { color: #22c55e; font-size: 14px; }
+    textarea { width: 100%; background: #0a0a0a; border: 1px solid #333; border-radius: 8px; padding: 12px; color: #e5e5e5; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 14px; resize: vertical; min-height: 100px; }
+    textarea:focus { outline: none; border-color: #555; }
+    .hint { font-size: 12px; color: #666; margin-top: 6px; }
+    .columns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .col-tag { background: #262626; color: #a3a3a3; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-family: monospace; cursor: pointer; }
+    .col-tag:hover { background: #333; color: #e5e5e5; }
+    .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity 0.2s; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary { background: #22c55e; color: #000; }
+    .btn-primary:hover:not(:disabled) { background: #16a34a; }
+    .btn-danger { background: #ef4444; color: #fff; }
+    .btn-danger:hover:not(:disabled) { background: #dc2626; }
+    .btn-ghost { background: transparent; border: 1px solid #333; color: #a3a3a3; }
+    .btn-ghost:hover:not(:disabled) { border-color: #555; color: #e5e5e5; }
+    .btn-row { display: flex; gap: 8px; margin-top: 16px; }
+    .preview-box { background: #0a0a0a; border: 1px solid #262626; border-radius: 8px; padding: 12px; margin-top: 12px; font-size: 13px; white-space: pre-wrap; }
+    .preview-box + .preview-box { margin-top: 8px; }
+    .preview-label { font-size: 11px; color: #666; margin-bottom: 4px; }
+    .progress-wrap { margin-top: 16px; }
+    .progress-bar { height: 6px; background: #262626; border-radius: 3px; overflow: hidden; }
+    .progress-fill { height: 100%; background: #22c55e; transition: width 0.3s; border-radius: 3px; }
+    .progress-text { font-size: 13px; color: #a3a3a3; margin-top: 8px; display: flex; justify-content: space-between; }
+    .results { max-height: 300px; overflow-y: auto; margin-top: 12px; font-size: 13px; }
+    .result-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1a1a1a; }
+    .result-sent { color: #22c55e; }
+    .result-failed { color: #ef4444; }
+    .result-skipped { color: #eab308; }
+    .delay-row { display: flex; gap: 12px; align-items: center; margin-top: 12px; }
+    .delay-row input { width: 60px; background: #0a0a0a; border: 1px solid #333; border-radius: 6px; padding: 8px; color: #e5e5e5; font-size: 14px; text-align: center; }
+    .delay-row input:focus { outline: none; border-color: #555; }
+    .delay-row span { color: #666; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>WA Blast</h1>
+    <p class="subtitle">Import data, create message, blast</p>
+
+    <div class="status-bar" id="statusBar">
+      <span class="dot red" id="statusDot"></span>
+      <span id="statusText">Checking...</span>
+    </div>
+
+    <!-- Step 1: Upload -->
+    <div class="card">
+      <h2><span class="step-num" id="step1">1</span> Import Data</h2>
+      <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+        <p style="color:#666">Klik atau drag file CSV / Excel (.xlsx)</p>
+        <p style="color:#444;font-size:12px;margin-top:4px">Harus ada kolom phone/hp/wa/nomor</p>
+      </div>
+      <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" onchange="uploadFile(this)">
+      <div id="uploadResult"></div>
+    </div>
+
+    <!-- Step 2: Compose -->
+    <div class="card">
+      <h2><span class="step-num" id="step2">2</span> Tulis Pesan</h2>
+      <label>Template (klik tag untuk insert)</label>
+      <div class="columns" id="columnTags"></div>
+      <textarea id="template" placeholder="Halo {{nama}}, terima kasih sudah bergabung!" style="margin-top:12px"></textarea>
+      <div class="hint">Gunakan <code>{{nama_kolom}}</code> untuk variable dari data</div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="previewMessages()" id="previewBtn" disabled>Preview</button>
+      </div>
+      <div id="previewArea"></div>
+    </div>
+
+    <!-- Step 3: Blast -->
+    <div class="card">
+      <h2><span class="step-num" id="step3">3</span> Blast</h2>
+      <div class="delay-row">
+        <span>Delay:</span>
+        <input type="number" id="delayMin" value="3" min="1" max="30">
+        <span>—</span>
+        <input type="number" id="delayMax" value="7" min="1" max="60">
+        <span>detik antar pesan</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="startBlast()" id="blastBtn" disabled>Mulai Blast</button>
+        <button class="btn btn-danger" onclick="cancelBlast()" id="cancelBtn" style="display:none">Stop</button>
+        <button class="btn btn-ghost" onclick="clearAll()" id="clearBtn">Clear</button>
+      </div>
+      <div class="progress-wrap" id="progressWrap" style="display:none">
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="progress-text">
+          <span id="progressText">0 / 0</span>
+          <span id="progressStats"></span>
+        </div>
+      </div>
+      <div class="results" id="results"></div>
+    </div>
+  </div>
+
+  <script>
+    let columns = [];
+    let contactCount = 0;
+    let pollInterval = null;
+
+    // ─── Health check ───
+    async function checkHealth() {
+      try {
+        const r = await fetch("/health");
+        const d = await r.json();
+        const dot = document.getElementById("statusDot");
+        const text = document.getElementById("statusText");
+        if (d.status === "connected") {
+          dot.className = "dot green";
+          text.textContent = "WhatsApp terhubung";
+        } else {
+          dot.className = "dot yellow";
+          text.innerHTML = 'WhatsApp belum terhubung — <a href="/qr" style="color:#eab308">Scan QR</a>';
+        }
+      } catch {
+        document.getElementById("statusDot").className = "dot red";
+        document.getElementById("statusText").textContent = "Server tidak tersedia";
+      }
+    }
+    checkHealth();
+    setInterval(checkHealth, 10000);
+
+    // ─── Upload ───
+    async function uploadFile(input) {
+      const file = input.files[0];
+      if (!file) return;
+
+      const form = new FormData();
+      form.append("file", file);
+
+      const r = await fetch("/api/upload", { method: "POST", body: form });
+      const d = await r.json();
+
+      if (!r.ok) {
+        document.getElementById("uploadResult").innerHTML = `<p style="color:#ef4444;margin-top:8px">${d.error}</p>`;
+        return;
+      }
+
+      contactCount = d.count;
+      columns = d.columns;
+
+      document.getElementById("uploadArea").className = "upload-area has-file";
+      document.getElementById("uploadArea").innerHTML = `<p class="upload-info">${file.name} — ${d.count} kontak</p>`;
+      document.getElementById("step1").className = "step-num active";
+
+      const tags = document.getElementById("columnTags");
+      tags.innerHTML = columns.map(c => `<span class="col-tag" onclick="insertTag('${c}')">{{${c}}}</span>`).join("");
+
+      document.getElementById("previewBtn").disabled = false;
+      updateBlastBtn();
+
+      // Preview table
+      let html = '<div style="margin-top:12px;font-size:12px;color:#666;overflow-x:auto"><table style="width:100%;border-collapse:collapse">';
+      html += '<tr>' + columns.map(c => `<th style="text-align:left;padding:4px 8px;border-bottom:1px solid #262626;color:#888">${c}</th>`).join("") + '</tr>';
+      d.preview.forEach(row => {
+        html += '<tr>' + columns.map(c => `<td style="padding:4px 8px;border-bottom:1px solid #1a1a1a">${row[c] ?? ''}</td>`).join("") + '</tr>';
+      });
+      html += '</table></div>';
+      document.getElementById("uploadResult").innerHTML = html;
+    }
+
+    function insertTag(col) {
+      const ta = document.getElementById("template");
+      const pos = ta.selectionStart;
+      const val = ta.value;
+      const tag = `{{${col}}}`;
+      ta.value = val.slice(0, pos) + tag + val.slice(pos);
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = pos + tag.length;
+    }
+
+    // ─── Preview ───
+    async function previewMessages() {
+      const template = document.getElementById("template").value;
+      if (!template) return;
+
+      const r = await fetch("/api/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ template }),
+      });
+      const d = await r.json();
+      if (!r.ok) return;
+
+      document.getElementById("step2").className = "step-num active";
+      const area = document.getElementById("previewArea");
+      area.innerHTML = d.previews.map((p, i) =>
+        `<div class="preview-box"><div class="preview-label">Preview #${i + 1}</div>${p.rendered}</div>`
+      ).join("");
+
+      updateBlastBtn();
+    }
+
+    function updateBlastBtn() {
+      const hasContacts = contactCount > 0;
+      const hasTemplate = document.getElementById("template").value.trim().length > 0;
+      document.getElementById("blastBtn").disabled = !(hasContacts && hasTemplate);
+    }
+    document.getElementById("template").addEventListener("input", updateBlastBtn);
+
+    // ─── Blast ───
+    async function startBlast() {
+      const template = document.getElementById("template").value;
+      const delayMin = parseInt(document.getElementById("delayMin").value) || 3;
+      const delayMax = parseInt(document.getElementById("delayMax").value) || 7;
+
+      const r = await fetch("/api/blast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ template, delayMin, delayMax }),
+      });
+      const d = await r.json();
+      if (!r.ok) { alert(d.error); return; }
+
+      document.getElementById("blastBtn").style.display = "none";
+      document.getElementById("cancelBtn").style.display = "inline-flex";
+      document.getElementById("clearBtn").disabled = true;
+      document.getElementById("progressWrap").style.display = "block";
+      document.getElementById("step3").className = "step-num active";
+      document.getElementById("results").innerHTML = "";
+
+      pollInterval = setInterval(pollStatus, 1000);
+    }
+
+    async function pollStatus() {
+      const r = await fetch("/api/status");
+      const d = await r.json();
+      if (d.status === "idle") return;
+
+      const pct = d.total > 0 ? Math.round((d.current / d.total) * 100) : 0;
+      document.getElementById("progressFill").style.width = pct + "%";
+      document.getElementById("progressText").textContent = `${d.current} / ${d.total}`;
+      document.getElementById("progressStats").textContent = `${d.sent} terkirim · ${d.failed} gagal`;
+
+      const resultsEl = document.getElementById("results");
+      resultsEl.innerHTML = d.results.slice().reverse().map(r =>
+        `<div class="result-row"><span>${r.phone}</span><span class="result-${r.status}">${r.status}${r.error ? ' — ' + r.error : ''}</span></div>`
+      ).join("");
+      resultsEl.scrollTop = 0;
+
+      if (d.status === "done" || d.status === "cancelled") {
+        clearInterval(pollInterval);
+        document.getElementById("blastBtn").style.display = "inline-flex";
+        document.getElementById("cancelBtn").style.display = "none";
+        document.getElementById("clearBtn").disabled = false;
+        if (d.status === "done") {
+          document.getElementById("progressFill").style.width = "100%";
+        }
+      }
+    }
+
+    async function cancelBlast() {
+      await fetch("/api/cancel", { method: "POST" });
+    }
+
+    async function clearAll() {
+      await fetch("/api/clear", { method: "POST" });
+      contactCount = 0;
+      columns = [];
+      document.getElementById("uploadArea").className = "upload-area";
+      document.getElementById("uploadArea").innerHTML = '<p style="color:#666">Klik atau drag file CSV / Excel (.xlsx)</p><p style="color:#444;font-size:12px;margin-top:4px">Harus ada kolom phone/hp/wa/nomor</p>';
+      document.getElementById("uploadResult").innerHTML = "";
+      document.getElementById("columnTags").innerHTML = "";
+      document.getElementById("template").value = "";
+      document.getElementById("previewArea").innerHTML = "";
+      document.getElementById("progressWrap").style.display = "none";
+      document.getElementById("results").innerHTML = "";
+      document.getElementById("previewBtn").disabled = true;
+      document.getElementById("blastBtn").disabled = true;
+      document.getElementById("fileInput").value = "";
+      ["step1", "step2", "step3"].forEach(s => document.getElementById(s).className = "step-num");
+    }
+
+    // Drag & drop
+    const area = document.getElementById("uploadArea");
+    area.addEventListener("dragover", e => { e.preventDefault(); area.style.borderColor = "#555"; });
+    area.addEventListener("dragleave", () => { area.style.borderColor = "#333"; });
+    area.addEventListener("drop", e => {
+      e.preventDefault();
+      area.style.borderColor = "#333";
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        const input = document.getElementById("fileInput");
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        input.files = dt.files;
+        uploadFile(input);
+      }
+    });
+  </script>
+</body>
+</html>
