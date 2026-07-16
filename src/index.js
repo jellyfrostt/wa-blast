@@ -6,7 +6,7 @@ import * as XLSX from "xlsx";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { initWhatsApp, getSocket, getQrDataUrl, requestPairingCode, getConnectionLog, disconnectAndClear } from "./wa-client.js";
-import { startBlast, getJobStatus, getJobHistory, cancelJob } from "./blast.js";
+import { startBlast, getJobStatus, getJobHistory, cancelJob, sendWithRetry } from "./blast.js";
 import { formatPhone, displayPhone } from "./phone.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -132,7 +132,7 @@ app.post("/api/quick-send", async (req, res) => {
     }
 
     try {
-      const result = await sock.sendMessage(jid, { text: varied });
+      const result = await sendWithRetry(jid, { text: varied }, logger);
       sent++;
       res.write(JSON.stringify({ index: i, phone: display, status: "sent", variant: varied.substring(0, 80), messageId: result?.key?.id }) + "\n");
       logger.info({ index: i, phone: display, jid, messageId: result?.key?.id }, `Quick send ${i + 1}/${count}`);
@@ -205,7 +205,13 @@ app.post("/api/preview", (req, res) => {
   if (!template) return res.status(400).json({ error: "Template kosong" });
 
   const previews = uploadedContacts.slice(0, 3).map((row) => {
-    const rendered = template.replace(/\{\{(\w+)\}\}/g, (_, key) => row[key] ?? `{{${key}}}`);
+    const rendered = template.replace(/\{\{([^}]+)\}\}/g, (_, rawKey) => {
+      const key = rawKey.trim();
+      if (key in row) return row[key];
+      const lower = key.toLowerCase();
+      const match = Object.keys(row).find(k => k.toLowerCase() === lower);
+      return match ? row[match] : `{{${rawKey}}}`;
+    });
     return { row, rendered };
   });
 

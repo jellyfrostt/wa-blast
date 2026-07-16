@@ -13,6 +13,29 @@ function sendWithTimeout(sock, jid, content) {
   ]);
 }
 
+export async function sendWithRetry(jid, content, logger) {
+  const MAX_RETRIES = 2;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    let activeSock = getConnectedSocket();
+    if (!activeSock) {
+      logger.warn({ jid, attempt }, "Socket dead — waiting for reconnect");
+      activeSock = await waitForReconnect(logger);
+      if (!activeSock) throw new Error("Connection lost — reconnect timed out");
+    }
+    try {
+      return await sendWithTimeout(activeSock, jid, content);
+    } catch (err) {
+      const errorType = classifyError(err);
+      if (attempt < MAX_RETRIES && (errorType === "connection" || errorType === "timeout")) {
+        logger.info({ jid, attempt, backoffMs: (attempt + 1) * 5000 }, "Retrying after backoff");
+        await sleep((attempt + 1) * 5000);
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 let currentJob = null;
 let jobHistory = [];
 
@@ -30,9 +53,18 @@ export function cancelJob() {
   }
 }
 
+function resolveColumn(row, key) {
+  if (key in row) return row[key];
+  const lower = key.toLowerCase();
+  const match = Object.keys(row).find(k => k.toLowerCase() === lower);
+  return match ? row[match] : undefined;
+}
+
 function renderTemplate(template, row) {
-  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => {
-    return row[key] ?? `{{${key}}}`;
+  return template.replace(/\{\{([^}]+)\}\}/g, (_, rawKey) => {
+    const key = rawKey.trim();
+    const val = resolveColumn(row, key);
+    return val !== undefined ? val : `{{${rawKey}}}`;
   });
 }
 
@@ -178,6 +210,7 @@ export async function startBlast(contacts, template, delayMin, delayMax, logger)
 
       const MAX_RETRIES = 2;
       let sent = false;
+      let lastErrorType = "unknown";
 
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         try {
@@ -200,16 +233,23 @@ export async function startBlast(contacts, template, delayMin, delayMax, logger)
           sent = true;
           break;
         } catch (err) {
-          const errorType = classifyError(err);
-          logger.warn({ index: i, phone: display, attempt, maxRetries: MAX_RETRIES, errorType, err: err.message }, "Send attempt failed");
+          lastErrorType = classifyError(err);
+          logger.warn({ index: i, phone: display, attempt, maxRetries: MAX_RETRIES, errorType: lastErrorType, err: err.message }, "Send attempt failed");
 
-          if (errorType === "banned") {
+          if (lastErrorType === "banned") {
             logger.error("BANNED detected — stopping blast immediately");
             currentJob.status = "banned";
             break;
           }
 
-          if (attempt < MAX_RETRIES && (errorType === "connection" || errorType === "timeout")) {
+          if (lastErrorType === "rate_limit") {
+            currentJob.rateLimitHits++;
+            const cooldown = 30000 + Math.floor(Math.random() * 15000);
+            logger.warn({ index: i, cooldownMs: cooldown }, "Rate limited — cooling down");
+            await sleep(cooldown);
+          }
+
+          if (attempt < MAX_RETRIES && (lastErrorType === "connection" || lastErrorType === "timeout" || lastErrorType === "rate_limit")) {
             const backoff = (attempt + 1) * 5000;
             logger.info({ index: i, backoffMs: backoff }, "Retrying after backoff");
             await sleep(backoff);
@@ -227,12 +267,12 @@ export async function startBlast(contacts, template, delayMin, delayMax, logger)
           phone: display,
           status: "failed",
           error: `Failed after ${MAX_RETRIES + 1} attempts`,
-          errorType: "connection",
+          errorType: lastErrorType,
           sendMs,
           ts: new Date().toISOString(),
         });
         currentJob.failed++;
-        currentJob.errorBreakdown["connection"] = (currentJob.errorBreakdown["connection"] || 0) + 1;
+        currentJob.errorBreakdown[lastErrorType] = (currentJob.errorBreakdown[lastErrorType] || 0) + 1;
         consecutiveErrors++;
 
         if (consecutiveErrors > currentJob.maxConsecutiveErrors) {

@@ -446,12 +446,14 @@
       el.innerHTML = d.results.slice().reverse().map(r =>
         `<div class="result-row"><span class="phone">${r.phone}</span><span class="result-${r.status}">${r.status}${r.error ? ' — ' + r.error : ''}</span></div>`
       ).join("");
-      if (d.status === "done" || d.status === "cancelled") {
+      if (["done", "cancelled", "error_stopped", "banned"].includes(d.status)) {
         clearInterval(pollInterval);
         document.getElementById("blastBtn").style.display = "inline-flex";
         document.getElementById("cancelBtn").style.display = "none";
         document.getElementById("clearBtn").disabled = false;
         if (d.status === "done") document.getElementById("progressFill").style.width = "100%";
+        if (d.status === "error_stopped") document.getElementById("progressStats").textContent += " (stopped: too many errors)";
+        if (d.status === "banned") document.getElementById("progressStats").textContent += " (stopped: number banned)";
       }
     }
 
