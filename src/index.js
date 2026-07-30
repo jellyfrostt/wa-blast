@@ -5,8 +5,9 @@ import { parse } from "csv-parse/sync";
 import * as XLSX from "xlsx";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { initWhatsApp, getSocket, getQrDataUrl, requestPairingCode } from "./wa-client.js";
-import { startBlast, getJobStatus, cancelJob } from "./blast.js";
+import { initWhatsApp, getSocket, getQrDataUrl, requestPairingCode, getConnectionLog, disconnectAndClear } from "./wa-client.js";
+import { startBlast, getJobStatus, getJobHistory, cancelJob } from "./blast.js";
+import { formatPhone, displayPhone } from "./phone.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const logger = pino({ level: process.env.LOG_LEVEL || "info" });
@@ -53,10 +54,97 @@ app.get("/pair", async (req, res) => {
 app.get("/health", (_req, res) => {
   const sock = getSocket();
   const connected = sock?.user != null;
+  const sender = sock?.user?.id?.replace(/:.*/, "") || null;
   res.status(connected ? 200 : 503).json({
     status: connected ? "connected" : "disconnected",
+    sender: sender ? `+${sender}` : null,
     contacts: uploadedContacts?.length ?? 0,
   });
+});
+
+// ─── Disconnect (to switch sender) ──────────────────────────────────────
+
+app.post("/api/disconnect", async (_req, res) => {
+  try {
+    await disconnectAndClear(logger);
+    res.json({ ok: true, message: "Disconnected. Pair again to reconnect." });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── Quick send (single number, N messages, with variation) ─────────────
+
+const GREETINGS = ["Halo", "Hai", "Hi", "Hey", "Selamat pagi", "Selamat siang", "Selamat sore", "Assalamualaikum", "Salam"];
+const CLOSINGS = ["", "", "", "", "Terima kasih.", "Terimakasih.", "Makasih ya.", "Thanks."];
+const ZWSP = "​";
+const ZWNJ = "‌";
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+function varyMessage(base, _index) {
+  const parts = [];
+  parts.push(pick(GREETINGS) + (Math.random() > 0.5 ? "," : "!"));
+  parts.push("");
+  for (const line of base.split("\n")) {
+    let v = line;
+    if (Math.random() > 0.7) v = v.replace(/\./g, () => Math.random() > 0.5 ? "." : "..");
+    if (Math.random() > 0.6) {
+      const w = v.split(" ");
+      const pos = randInt(1, Math.max(1, w.length - 1));
+      w.splice(pos, 0, pick([ZWSP, ZWNJ]));
+      v = w.join(" ");
+    }
+    if (Math.random() > 0.8) v += " ";
+    parts.push(v);
+  }
+  const closing = pick(CLOSINGS);
+  if (closing) { parts.push(""); parts.push(closing); }
+  return parts.join("\n");
+}
+
+app.post("/api/quick-send", async (req, res) => {
+  const { phone, message, count = 1, delayMin = 3, delayMax = 8 } = req.body;
+  if (!phone || !message) return res.status(400).json({ error: "phone dan message wajib" });
+  if (count < 1) return res.status(400).json({ error: "count harus minimal 1" });
+
+  const sock = getSocket();
+  if (!sock?.user) return res.status(503).json({ error: "WhatsApp belum terhubung" });
+
+  const jid = formatPhone(phone);
+  const display = displayPhone(phone);
+
+  res.writeHead(200, {
+    "Content-Type": "application/x-ndjson",
+    "Cache-Control": "no-cache",
+    "Transfer-Encoding": "chunked",
+  });
+
+  let sent = 0, failed = 0;
+
+  for (let i = 0; i < count; i++) {
+    const varied = varyMessage(message, i);
+
+    if (i > 0) {
+      const delay = i % 10 === 0 ? randInt(30, 60) : randInt(delayMin, delayMax);
+      await new Promise(r => setTimeout(r, delay * 1000));
+    }
+
+    try {
+      const result = await sock.sendMessage(jid, { text: varied });
+      sent++;
+      res.write(JSON.stringify({ index: i, phone: display, status: "sent", variant: varied.substring(0, 80), messageId: result?.key?.id }) + "\n");
+      logger.info({ index: i, phone: display, jid, messageId: result?.key?.id }, `Quick send ${i + 1}/${count}`);
+    } catch (err) {
+      failed++;
+      res.write(JSON.stringify({ index: i, phone: display, status: "failed", error: err.message }) + "\n");
+      logger.error({ index: i, phone: display, err: err.message }, "Quick send failed");
+    }
+  }
+
+  res.write(JSON.stringify({ done: true, total: count, sent, failed }) + "\n");
+  res.end();
 });
 
 // ─── Upload contacts ──────────────────────────────────────────────────────
@@ -88,6 +176,15 @@ app.post("/api/upload", upload.single("file"), (req, res) => {
 
   if (!rows.length) return res.status(400).json({ error: "File kosong" });
 
+  // stringify all values (Excel stores phone numbers as numeric)
+  rows = rows.map(row => {
+    const out = {};
+    for (const [k, v] of Object.entries(row)) {
+      out[k] = v === null || v === undefined ? "" : String(v);
+    }
+    return out;
+  });
+
   uploadedContacts = rows;
   uploadedColumns = Object.keys(rows[0]);
 
@@ -113,6 +210,27 @@ app.post("/api/preview", (req, res) => {
   });
 
   res.json({ previews });
+});
+
+// ─── Send single message ─────────────────────────────────────────────────
+
+app.post("/api/send", async (req, res) => {
+  const { phone, message } = req.body;
+  if (!phone || !message) return res.status(400).json({ error: "phone dan message wajib diisi" });
+
+  const sock = getSocket();
+  if (!sock?.user) return res.status(503).json({ error: "WhatsApp belum terhubung" });
+
+  const jid = formatPhone(phone);
+
+  try {
+    const result = await sock.sendMessage(jid, { text: message });
+    logger.info({ phone: displayPhone(phone), jid, messageId: result?.key?.id, result: JSON.stringify(result) }, "Single message sent");
+    res.json({ ok: true, phone: displayPhone(phone), jid, messageId: result?.key?.id, baileys: result });
+  } catch (err) {
+    logger.error({ phone: displayPhone(phone), err: err.message }, "Single message failed");
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ─── Start blast ──────────────────────────────────────────────────────────
@@ -144,6 +262,18 @@ app.get("/api/status", (_req, res) => {
 app.post("/api/cancel", (_req, res) => {
   cancelJob();
   res.json({ ok: true });
+});
+
+// ─── Job history ──────────────────────────────────────────────────────────
+
+app.get("/api/history", (_req, res) => {
+  res.json(getJobHistory());
+});
+
+// ─── Connection log ───────────────────────────────────────────────────────
+
+app.get("/api/connection-log", (_req, res) => {
+  res.json(getConnectionLog());
 });
 
 // ─── Clear contacts ───────────────────────────────────────────────────────

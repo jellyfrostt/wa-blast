@@ -3,7 +3,7 @@ const require = createRequire(import.meta.url);
 const baileys = require("@whiskeysockets/baileys");
 
 import pino from "pino";
-import { rm } from "fs/promises";
+import { rm, readdir, unlink } from "fs/promises";
 import { toDataURL } from "qrcode";
 
 const makeWASocket = baileys.default || baileys.makeWASocket || baileys;
@@ -13,6 +13,7 @@ let sock = null;
 let latestQr = null;
 let pairingCode = null;
 let reconnectAttempt = 0;
+let connectionLog = [];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -26,6 +27,16 @@ export function getQrDataUrl() {
 
 export function getPairingCode() {
   return pairingCode;
+}
+
+export function getConnectionLog() {
+  return connectionLog;
+}
+
+function logConnection(event, data) {
+  const entry = { ts: new Date().toISOString(), event, ...data };
+  connectionLog.push(entry);
+  if (connectionLog.length > 200) connectionLog.shift();
 }
 
 export async function initWhatsApp(logger) {
@@ -72,6 +83,7 @@ export async function initWhatsApp(logger) {
     if (qr) {
       latestQr = await toDataURL(qr);
       reconnectAttempt = 0;
+      logConnection("qr_ready", {});
       logger.info("QR code ready — visit /qr to scan");
     }
 
@@ -79,26 +91,65 @@ export async function initWhatsApp(logger) {
       latestQr = null;
       pairingCode = null;
       reconnectAttempt = 0;
+      logConnection("connected", { user: sock?.user?.id });
       logger.info("WhatsApp connected");
     }
 
     if (connection === "close") {
       const statusCode = lastDisconnect?.error?.output?.statusCode;
+      const errorMsg = lastDisconnect?.error?.message;
       const loggedOut = statusCode === DisconnectReason.loggedOut;
 
+      logConnection("disconnected", { statusCode, errorMsg, loggedOut, attempt: reconnectAttempt + 1 });
+
       if (loggedOut) {
-        logger.warn("Logged out — removing session and exiting");
-        await rm("./auth_info", { recursive: true, force: true });
-        process.exit(1);
+        logConnection("logged_out", { reason: "Session terminated by WhatsApp" });
+        logger.warn("Logged out — clearing session for fresh QR");
+        try { sock.end(); } catch {}
+        sock = null;
+        await sleep(2000);
+        try {
+          const files = await readdir("./auth_info");
+          for (const f of files) {
+            try { await unlink(`./auth_info/${f}`); } catch {}
+          }
+          logger.info({ cleared: files.length }, "Session files cleared");
+        } catch (e) {
+          logger.warn({ err: e.message }, "Could not clear session files");
+        }
+        reconnectAttempt = 0;
+        await sleep(2000);
+        await initWhatsApp(logger);
+        return;
       }
 
       reconnectAttempt++;
       const delay = Math.min(reconnectAttempt * 5000, 60000);
+      logConnection("reconnecting", { attempt: reconnectAttempt, delaySec: delay / 1000 });
       logger.info(`Connection closed (attempt ${reconnectAttempt}), reconnecting in ${delay / 1000}s...`);
       await sleep(delay);
       await initWhatsApp(logger);
     }
   });
+}
+
+export async function disconnectAndClear(logger) {
+  if (sock) {
+    try { await sock.logout(); } catch {}
+    try { sock.end(); } catch {}
+    sock = null;
+  }
+  await sleep(2000);
+  try {
+    const files = await readdir("./auth_info");
+    for (const f of files) {
+      try { await unlink(`./auth_info/${f}`); } catch {}
+    }
+    logger.info({ cleared: files.length }, "Session files cleared via disconnect");
+  } catch {}
+  reconnectAttempt = 0;
+  await sleep(1000);
+  await initWhatsApp(logger);
 }
 
 export async function requestPairingCode(phoneNumber, logger) {
