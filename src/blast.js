@@ -148,6 +148,15 @@ export async function startBlast(contacts, template, delayMin, delayMax, logger)
       }
 
       const phone = row[phoneCol];
+      const cleaned = String(phone).replace(/\D/g, "");
+      if (!cleaned || cleaned.length < 9) {
+        currentJob.results.push({ index: i, phone: phone || "?", status: "skipped", error: "Nomor tidak valid", ts: new Date().toISOString() });
+        currentJob.skipped++;
+        currentJob.current = i + 1;
+        logger.warn({ index: i, phone, columns: Object.keys(row) }, "Skipped — invalid/empty phone");
+        continue;
+      }
+
       const message = renderTemplate(template, row);
       const jid = formatPhone(phone);
       const display = displayPhone(phone);
