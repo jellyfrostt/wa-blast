@@ -68,7 +68,7 @@ export async function initWhatsApp(logger) {
     printQRInTerminal: false,
     connectTimeoutMs: 60000,
     defaultQueryTimeoutMs: 0,
-    browser: ["WA Blast", "Chrome", "1.0.0"],
+    browser: ["Chrome", "Windows", "10.0"],
   });
 
   sock.ev.on("creds.update", saveCreds);
@@ -124,9 +124,17 @@ export async function initWhatsApp(logger) {
       }
 
       reconnectAttempt++;
-      const delay = Math.min(reconnectAttempt * 5000, 60000);
+      if (reconnectAttempt > 8) {
+        logConnection("max_reconnect", { attempt: reconnectAttempt });
+        logger.error("Max reconnect attempts (8) — stopping. Re-scan QR to reconnect.");
+        sock = null;
+        return;
+      }
+      const base = Math.min(reconnectAttempt * 5000, 60000);
+      const jitter = Math.floor(Math.random() * 3000);
+      const delay = base + jitter;
       logConnection("reconnecting", { attempt: reconnectAttempt, delaySec: delay / 1000 });
-      logger.info(`Connection closed (attempt ${reconnectAttempt}), reconnecting in ${delay / 1000}s...`);
+      logger.info(`Connection closed (attempt ${reconnectAttempt}/8), reconnecting in ${(delay / 1000).toFixed(1)}s...`);
       await sleep(delay);
       await initWhatsApp(logger);
     }
