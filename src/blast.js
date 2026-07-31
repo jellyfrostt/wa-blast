@@ -87,8 +87,13 @@ async function waitForReconnect(logger, maxWaitMs = 30000) {
   const start = Date.now();
   while (Date.now() - start < maxWaitMs) {
     const s = getConnectedSocket();
-    if (s) return s;
-    logger.info({ elapsed: Date.now() - start }, "Waiting for WA reconnect...");
+    if (s) {
+      // Wait a bit to confirm socket is stable (survives the 440 cycle)
+      await sleep(2000);
+      const s2 = getConnectedSocket();
+      if (s2 && s2 === s) return s2;
+      logger.info("Socket died during stability check, retrying...");
+    }
     await sleep(3000);
   }
   return null;
