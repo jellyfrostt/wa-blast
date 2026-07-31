@@ -4,6 +4,15 @@ import { formatPhone, displayPhone } from "./phone.js";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+const SEND_TIMEOUT_MS = 20000;
+
+function sendWithTimeout(sock, jid, content) {
+  return Promise.race([
+    sock.sendMessage(jid, content),
+    sleep(SEND_TIMEOUT_MS).then(() => { throw new Error("Send timeout — socket mungkin hang"); }),
+  ]);
+}
+
 let currentJob = null;
 let jobHistory = [];
 
@@ -167,95 +176,70 @@ export async function startBlast(contacts, template, delayMin, delayMax, logger)
       const display = displayPhone(phone);
       const sendStart = Date.now();
 
-      try {
-        let activeSock = getConnectedSocket();
-        if (!activeSock) {
-          logger.warn({ index: i, phone: display }, "Socket dead — waiting for reconnect before send");
-          activeSock = await waitForReconnect(logger);
+      const MAX_RETRIES = 2;
+      let sent = false;
+
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          let activeSock = getConnectedSocket();
           if (!activeSock) {
-            throw new Error("Connection Closed — reconnect timed out");
-          }
-          logger.info({ index: i }, "Reconnected, resuming blast");
-        }
-
-        const result = await activeSock.sendMessage(jid, { text: message });
-        const sendMs = Date.now() - sendStart;
-        currentJob.results.push({ index: i, phone: display, status: "sent", sendMs, ts: new Date().toISOString() });
-        currentJob.sent++;
-        consecutiveErrors = 0;
-        logger.info({ index: i, phone: display, jid, sendMs, messageId: result?.key?.id, progress: `${i + 1}/${contacts.length}` }, "Sent");
-      } catch (err) {
-        const sendMs = Date.now() - sendStart;
-        const errorType = classifyError(err);
-
-        // On connection error, wait for reconnect and retry this message once
-        if (errorType === "connection") {
-          logger.warn({ index: i, phone: display }, "Connection error — waiting for reconnect to retry");
-          const retrySock = await waitForReconnect(logger);
-          if (retrySock) {
-            try {
-              const retryResult = await retrySock.sendMessage(jid, { text: message });
-              const retrySendMs = Date.now() - sendStart;
-              currentJob.results.push({ index: i, phone: display, status: "sent", sendMs: retrySendMs, retried: true, ts: new Date().toISOString() });
-              currentJob.sent++;
-              consecutiveErrors = 0;
-              logger.info({ index: i, phone: display, jid, sendMs: retrySendMs, messageId: retryResult?.key?.id, retried: true }, "Sent (retry)");
-              currentJob.current = i + 1;
-              currentJob.durationMs = Date.now() - startTime;
-              if (i < contacts.length - 1 && currentJob.status === "running") {
-                const delay = Math.floor(Math.random() * (delayMax - delayMin + 1)) + delayMin;
-                totalDelay += delay;
-                delayCount++;
-                currentJob.avgDelayMs = Math.round((totalDelay / delayCount) * 1000);
-                await sleep(delay * 1000);
-              }
-              continue;
-            } catch (retryErr) {
-              logger.error({ index: i, phone: display, err: retryErr.message }, "Retry also failed");
+            logger.warn({ index: i, phone: display, attempt }, "Socket dead — waiting for reconnect");
+            activeSock = await waitForReconnect(logger);
+            if (!activeSock) {
+              throw new Error("Connection Closed — reconnect timed out");
             }
+            logger.info({ index: i, attempt }, "Reconnected, resuming");
+          }
+
+          const result = await sendWithTimeout(activeSock, jid, { text: message });
+          const sendMs = Date.now() - sendStart;
+          currentJob.results.push({ index: i, phone: display, status: "sent", sendMs, retries: attempt, ts: new Date().toISOString() });
+          currentJob.sent++;
+          consecutiveErrors = 0;
+          logger.info({ index: i, phone: display, jid, sendMs, retries: attempt, messageId: result?.key?.id, progress: `${i + 1}/${contacts.length}` }, "Sent");
+          sent = true;
+          break;
+        } catch (err) {
+          const errorType = classifyError(err);
+          logger.warn({ index: i, phone: display, attempt, maxRetries: MAX_RETRIES, errorType, err: err.message }, "Send attempt failed");
+
+          if (errorType === "banned") {
+            logger.error("BANNED detected — stopping blast immediately");
+            currentJob.status = "banned";
+            break;
+          }
+
+          if (attempt < MAX_RETRIES && (errorType === "connection" || errorType === "timeout")) {
+            const backoff = (attempt + 1) * 5000;
+            logger.info({ index: i, backoffMs: backoff }, "Retrying after backoff");
+            await sleep(backoff);
+            continue;
           }
         }
+      }
 
+      if (currentJob.status === "banned") break;
+
+      if (!sent) {
+        const sendMs = Date.now() - sendStart;
         currentJob.results.push({
           index: i,
           phone: display,
           status: "failed",
-          error: err.message,
-          errorType,
+          error: `Failed after ${MAX_RETRIES + 1} attempts`,
+          errorType: "connection",
           sendMs,
           ts: new Date().toISOString(),
         });
         currentJob.failed++;
-        currentJob.errorBreakdown[errorType] = (currentJob.errorBreakdown[errorType] || 0) + 1;
+        currentJob.errorBreakdown["connection"] = (currentJob.errorBreakdown["connection"] || 0) + 1;
         consecutiveErrors++;
 
         if (consecutiveErrors > currentJob.maxConsecutiveErrors) {
           currentJob.maxConsecutiveErrors = consecutiveErrors;
         }
 
-        logger.error({
-          index: i,
-          phone: display,
-          errorType,
-          err: err.message,
-          consecutiveErrors,
-          progress: `${i + 1}/${contacts.length}`,
-        }, "Send failed");
-
-        if (errorType === "rate_limit") {
-          currentJob.rateLimitHits++;
-          const backoff = Math.min(30 + currentJob.rateLimitHits * 15, 120);
-          logger.warn({ backoffSec: backoff, rateLimitHits: currentJob.rateLimitHits }, "Rate limit detected — backing off");
-          currentJob.status = "rate_limited";
-          await sleep(backoff * 1000);
-          currentJob.status = "running";
-        }
-
-        if (errorType === "banned") {
-          logger.error("BANNED detected — stopping blast immediately");
-          currentJob.status = "banned";
-          break;
-        }
+        logger.error({ index: i, phone: display, consecutiveErrors, progress: `${i + 1}/${contacts.length}` }, "Send failed after all retries");
 
         if (consecutiveErrors >= 10) {
           logger.error({ consecutiveErrors }, "10 consecutive errors — stopping blast");
@@ -264,9 +248,8 @@ export async function startBlast(contacts, template, delayMin, delayMax, logger)
         }
 
         if (consecutiveErrors >= 5) {
-          const cooldown = 30;
-          logger.warn({ consecutiveErrors, cooldownSec: cooldown }, "5 consecutive errors — cooling down");
-          await sleep(cooldown * 1000);
+          logger.warn({ consecutiveErrors }, "5 consecutive errors — cooling down 30s");
+          await sleep(30000);
         }
       }
 
