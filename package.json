@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@whiskeysockets/baileys": "6.7.23",
+    "better-sqlite3": "^13.0.3",
     "csv-parse": "^5.6.0",
     "express": "^4.21.2",
     "libsodium-wrappers": "^0.7.15",
