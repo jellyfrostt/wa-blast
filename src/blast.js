@@ -1,5 +1,6 @@
 import { writeFileSync, mkdirSync, existsSync } from "fs";
-import { getSocket } from "./wa-client.js";
+import { getSessionSocket } from "./sessions.js";
+import { stmts } from "./db.js";
 import { formatPhone, displayPhone } from "./phone.js";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -9,18 +10,39 @@ const SEND_TIMEOUT_MS = 20000;
 function sendWithTimeout(sock, jid, content) {
   return Promise.race([
     sock.sendMessage(jid, content),
-    sleep(SEND_TIMEOUT_MS).then(() => { throw new Error("Send timeout — socket mungkin hang"); }),
+    sleep(SEND_TIMEOUT_MS).then(() => { throw new Error("Send timeout - socket mungkin hang"); }),
   ]);
 }
 
-export async function sendWithRetry(jid, content, logger) {
+function getConnectedSocket(sessionId) {
+  const s = getSessionSocket(sessionId);
+  if (!s?.user) return null;
+  return s;
+}
+
+async function waitForReconnect(sessionId, logger, maxWaitMs = 30000) {
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    const s = getConnectedSocket(sessionId);
+    if (s) {
+      await sleep(2000);
+      const s2 = getConnectedSocket(sessionId);
+      if (s2 && s2 === s) return s2;
+      logger.info("Socket died during stability check, retrying...");
+    }
+    await sleep(3000);
+  }
+  return null;
+}
+
+export async function sendWithRetry(sessionId, jid, content, logger) {
   const MAX_RETRIES = 2;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    let activeSock = getConnectedSocket();
+    let activeSock = getConnectedSocket(sessionId);
     if (!activeSock) {
-      logger.warn({ jid, attempt }, "Socket dead — waiting for reconnect");
-      activeSock = await waitForReconnect(logger);
-      if (!activeSock) throw new Error("Connection lost — reconnect timed out");
+      logger.warn({ sessionId, jid, attempt }, "Socket dead - waiting for reconnect");
+      activeSock = await waitForReconnect(sessionId, logger);
+      if (!activeSock) throw new Error("Connection lost - reconnect timed out");
     }
     try {
       return await sendWithTimeout(activeSock, jid, content);
@@ -96,6 +118,7 @@ function saveLog(job, logger) {
 
     const log = {
       id: job.id,
+      sessionId: job.sessionId,
       startedAt: job.startedAt,
       finishedAt: job.finishedAt,
       status: job.status,
@@ -118,34 +141,12 @@ function saveLog(job, logger) {
   }
 }
 
-function getConnectedSocket() {
-  const s = getSocket();
-  if (!s?.user) return null;
-  return s;
-}
-
-async function waitForReconnect(logger, maxWaitMs = 30000) {
-  const start = Date.now();
-  while (Date.now() - start < maxWaitMs) {
-    const s = getConnectedSocket();
-    if (s) {
-      // Wait a bit to confirm socket is stable (survives the 440 cycle)
-      await sleep(2000);
-      const s2 = getConnectedSocket();
-      if (s2 && s2 === s) return s2;
-      logger.info("Socket died during stability check, retrying...");
-    }
-    await sleep(3000);
-  }
-  return null;
-}
-
-export async function startBlast(contacts, template, delayMin, delayMax, logger) {
+export async function startBlast(sessionId, contacts, template, delayMin, delayMax, logger) {
   if (currentJob?.status === "running") {
     throw new Error("Blast sedang berjalan");
   }
 
-  if (!getConnectedSocket()) {
+  if (!getConnectedSocket(sessionId)) {
     throw new Error("WhatsApp belum terhubung");
   }
 
@@ -153,6 +154,7 @@ export async function startBlast(contacts, template, delayMin, delayMax, logger)
 
   currentJob = {
     id: jobId,
+    sessionId,
     status: "running",
     total: contacts.length,
     sent: 0,
@@ -189,7 +191,7 @@ export async function startBlast(contacts, template, delayMin, delayMax, logger)
         currentJob.results.push({ index: i, phone: "?", status: "skipped", error: "No phone column", ts: new Date().toISOString() });
         currentJob.skipped++;
         currentJob.current = i + 1;
-        logger.warn({ index: i, columns: Object.keys(row) }, "Skipped — no phone column found");
+        logger.warn({ index: i, columns: Object.keys(row) }, "Skipped - no phone column found");
         continue;
       }
 
@@ -199,7 +201,7 @@ export async function startBlast(contacts, template, delayMin, delayMax, logger)
         currentJob.results.push({ index: i, phone: phone || "?", status: "skipped", error: "Nomor tidak valid", ts: new Date().toISOString() });
         currentJob.skipped++;
         currentJob.current = i + 1;
-        logger.warn({ index: i, phone, columns: Object.keys(row) }, "Skipped — invalid/empty phone");
+        logger.warn({ index: i, phone, columns: Object.keys(row) }, "Skipped - invalid/empty phone");
         continue;
       }
 
@@ -214,12 +216,12 @@ export async function startBlast(contacts, template, delayMin, delayMax, logger)
 
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         try {
-          let activeSock = getConnectedSocket();
+          let activeSock = getConnectedSocket(sessionId);
           if (!activeSock) {
-            logger.warn({ index: i, phone: display, attempt }, "Socket dead — waiting for reconnect");
-            activeSock = await waitForReconnect(logger);
+            logger.warn({ index: i, phone: display, attempt }, "Socket dead - waiting for reconnect");
+            activeSock = await waitForReconnect(sessionId, logger);
             if (!activeSock) {
-              throw new Error("Connection Closed — reconnect timed out");
+              throw new Error("Connection Closed - reconnect timed out");
             }
             logger.info({ index: i, attempt }, "Reconnected, resuming");
           }
@@ -231,13 +233,20 @@ export async function startBlast(contacts, template, delayMin, delayMax, logger)
           consecutiveErrors = 0;
           logger.info({ index: i, phone: display, jid, sendMs, retries: attempt, messageId: result?.key?.id, progress: `${i + 1}/${contacts.length}` }, "Sent");
           sent = true;
+
+          try {
+            stmts.insertMessage.run(sessionId, jid, "outgoing", message, result?.key?.id, "sent", jobId, null);
+          } catch (dbErr) {
+            logger.warn({ err: dbErr.message }, "Failed to log sent message to DB");
+          }
+
           break;
         } catch (err) {
           lastErrorType = classifyError(err);
           logger.warn({ index: i, phone: display, attempt, maxRetries: MAX_RETRIES, errorType: lastErrorType, err: err.message }, "Send attempt failed");
 
           if (lastErrorType === "banned") {
-            logger.error("BANNED detected — stopping blast immediately");
+            logger.error("BANNED detected - stopping blast immediately");
             currentJob.status = "banned";
             break;
           }
@@ -245,7 +254,7 @@ export async function startBlast(contacts, template, delayMin, delayMax, logger)
           if (lastErrorType === "rate_limit") {
             currentJob.rateLimitHits++;
             const cooldown = 30000 + Math.floor(Math.random() * 15000);
-            logger.warn({ index: i, cooldownMs: cooldown }, "Rate limited — cooling down");
+            logger.warn({ index: i, cooldownMs: cooldown }, "Rate limited - cooling down");
             await sleep(cooldown);
           }
 
@@ -275,6 +284,12 @@ export async function startBlast(contacts, template, delayMin, delayMax, logger)
         currentJob.errorBreakdown[lastErrorType] = (currentJob.errorBreakdown[lastErrorType] || 0) + 1;
         consecutiveErrors++;
 
+        try {
+          stmts.insertMessage.run(sessionId, jid, "outgoing", message, null, "failed", jobId, null);
+        } catch (dbErr) {
+          logger.warn({ err: dbErr.message }, "Failed to log failed message to DB");
+        }
+
         if (consecutiveErrors > currentJob.maxConsecutiveErrors) {
           currentJob.maxConsecutiveErrors = consecutiveErrors;
         }
@@ -282,13 +297,13 @@ export async function startBlast(contacts, template, delayMin, delayMax, logger)
         logger.error({ index: i, phone: display, consecutiveErrors, progress: `${i + 1}/${contacts.length}` }, "Send failed after all retries");
 
         if (consecutiveErrors >= 10) {
-          logger.error({ consecutiveErrors }, "10 consecutive errors — stopping blast");
+          logger.error({ consecutiveErrors }, "10 consecutive errors - stopping blast");
           currentJob.status = "error_stopped";
           break;
         }
 
         if (consecutiveErrors >= 5) {
-          logger.warn({ consecutiveErrors }, "5 consecutive errors — cooling down 30s");
+          logger.warn({ consecutiveErrors }, "5 consecutive errors - cooling down 30s");
           await sleep(30000);
         }
       }
@@ -313,6 +328,7 @@ export async function startBlast(contacts, template, delayMin, delayMax, logger)
 
     logger.info({
       id: jobId,
+      sessionId,
       status: currentJob.status,
       total: currentJob.total,
       sent: currentJob.sent,
@@ -327,6 +343,7 @@ export async function startBlast(contacts, template, delayMin, delayMax, logger)
     saveLog(currentJob, logger);
     jobHistory.unshift({
       id: currentJob.id,
+      sessionId: currentJob.sessionId,
       status: currentJob.status,
       total: currentJob.total,
       sent: currentJob.sent,
@@ -349,7 +366,6 @@ function findPhoneColumn(row) {
     const norm = k.toLowerCase().replace(/[^a-z0-9]/g, "");
     if (phoneAliases.some(a => a.replace(/[^a-z0-9]/g, "") === norm)) return k;
   }
-  // fallback: first column whose value looks like a phone number
   for (const k of keys) {
     const val = String(row[k]).replace(/\D/g, "");
     if (val.length >= 9 && val.length <= 15 && /^(0|62|8)\d+/.test(val)) return k;
