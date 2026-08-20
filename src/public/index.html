@@ -18,11 +18,10 @@
     .dot.red { background: #ef4444; }
     .dot.yellow { background: #eab308; }
     .sender-info { color: #22c55e; font-weight: 600; font-size: 13px; }
-    .sender-actions { margin-left: auto; display: flex; gap: 8px; }
 
     /* Tabs */
-    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-    .tab { flex: 1; padding: 10px 16px; background: #171717; border: 1px solid #262626; border-radius: 8px; text-align: center; cursor: pointer; font-size: 14px; font-weight: 500; color: #888; transition: all 0.15s; }
+    .tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+    .tab { flex: 1; padding: 10px 12px; background: #171717; border: 1px solid #262626; border-radius: 8px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 500; color: #888; transition: all 0.15s; min-width: 0; white-space: nowrap; }
     .tab.active { background: #1a2e1a; border-color: #22c55e; color: #22c55e; }
     .tab:hover:not(.active) { border-color: #444; color: #bbb; }
     .tab-content { display: none; }
@@ -34,8 +33,9 @@
 
     /* Forms */
     label { font-size: 13px; color: #a3a3a3; display: block; margin-bottom: 6px; }
-    input[type="text"], input[type="number"] { width: 100%; background: #0a0a0a; border: 1px solid #333; border-radius: 8px; padding: 10px 12px; color: #e5e5e5; font-size: 14px; }
-    input:focus, textarea:focus { outline: none; border-color: #555; }
+    select, input[type="text"], input[type="number"] { width: 100%; background: #0a0a0a; border: 1px solid #333; border-radius: 8px; padding: 10px 12px; color: #e5e5e5; font-size: 14px; }
+    select:focus, input:focus, textarea:focus { outline: none; border-color: #555; }
+    select option { background: #171717; color: #e5e5e5; }
     textarea { width: 100%; background: #0a0a0a; border: 1px solid #333; border-radius: 8px; padding: 12px; color: #e5e5e5; font-family: inherit; font-size: 14px; resize: vertical; min-height: 100px; }
     .hint { font-size: 12px; color: #666; margin-top: 6px; }
     .row { display: flex; gap: 12px; align-items: center; margin-top: 12px; }
@@ -98,50 +98,115 @@
     .pair-section { display: flex; gap: 8px; margin-top: 12px; }
     .pair-section input { flex: 1; }
 
+    /* Session cards */
+    .session-card { background: #171717; border: 1px solid #262626; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+    .session-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .session-name { font-weight: 600; font-size: 15px; }
+    .session-phone { color: #22c55e; font-size: 13px; }
+    .session-status { color: #888; font-size: 12px; }
+    .session-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .session-qr { margin-top: 12px; text-align: center; }
+    .session-qr img { width: 200px; height: 200px; border-radius: 8px; }
+
+    /* Chat styles */
+    .chat-item { background: #171717; border: 1px solid #262626; border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.15s; }
+    .chat-item:hover { border-color: #444; }
+    .chat-item.active { border-color: #22c55e; }
+    .chat-jid { font-size: 14px; font-weight: 500; }
+    .chat-stats { font-size: 12px; color: #888; margin-top: 4px; }
+    .chat-time { font-size: 11px; color: #666; margin-top: 2px; }
+    .messages-container { margin-top: 12px; max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 12px; background: #0a0a0a; border: 1px solid #262626; border-radius: 8px; }
+    .msg-bubble { max-width: 75%; padding: 8px 12px; border-radius: 8px; font-size: 13px; white-space: pre-wrap; word-break: break-word; }
+    .msg-out { background: #1a2e1a; align-self: flex-end; border-bottom-right-radius: 2px; }
+    .msg-in { background: #262626; align-self: flex-start; border-bottom-left-radius: 2px; }
+    .msg-sender { font-size: 11px; color: #22c55e; margin-bottom: 2px; }
+    .msg-meta { font-size: 11px; color: #666; margin-top: 2px; display: flex; justify-content: flex-end; gap: 6px; }
+    .msg-status { color: #888; }
+    .msg-status.delivered { color: #a3a3a3; }
+    .msg-status.read { color: #3b82f6; }
+    .load-more-btn { text-align: center; margin-top: 8px; }
+
+    /* History */
+    .history-card { background: #171717; border: 1px solid #262626; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+    .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .history-status { font-size: 12px; padding: 3px 8px; border-radius: 4px; font-weight: 500; }
+    .history-status.done { background: #1a2e1a; color: #22c55e; }
+    .history-status.cancelled { background: #2a2a1a; color: #eab308; }
+    .history-status.error_stopped, .history-status.banned { background: #2a1a1a; color: #ef4444; }
+    .history-stats { display: flex; gap: 16px; font-size: 13px; color: #a3a3a3; margin-top: 8px; }
+    .history-stats span { display: flex; align-items: center; gap: 4px; }
+    .history-time { font-size: 12px; color: #666; margin-top: 4px; }
+    .delivery-bar { display: flex; height: 4px; border-radius: 2px; overflow: hidden; margin-top: 8px; background: #262626; }
+    .delivery-bar .sent { background: #22c55e; }
+    .delivery-bar .delivered { background: #3b82f6; }
+    .delivery-bar .read-seg { background: #8b5cf6; }
+    .delivery-bar .failed { background: #ef4444; }
+    .delivery-legend { display: flex; gap: 12px; margin-top: 6px; font-size: 11px; color: #888; }
+    .delivery-legend span::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+    .delivery-legend .l-sent::before { background: #22c55e; }
+    .delivery-legend .l-delivered::before { background: #3b82f6; }
+    .delivery-legend .l-read::before { background: #8b5cf6; }
+    .delivery-legend .l-failed::before { background: #ef4444; }
+
+    /* Empty state */
+    .empty-state { text-align: center; padding: 32px; color: #666; font-size: 14px; }
+
     @media (max-width: 600px) {
       .container { padding: 16px; }
-      .sender-actions { margin-left: 0; width: 100%; margin-top: 8px; }
+      .tabs { gap: 4px; }
+      .tab { padding: 8px 6px; font-size: 11px; }
       .result-variant { max-width: 180px; }
+      .msg-bubble { max-width: 90%; }
+      .history-stats { flex-wrap: wrap; gap: 8px; }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>WA Blast</h1>
-    <p class="subtitle">Kirim pesan WhatsApp — tiap pesan di-variasi otomatis</p>
+    <p class="subtitle">Kirim pesan WhatsApp - tiap pesan di-variasi otomatis</p>
 
-    <!-- Status bar with sender info -->
+    <!-- Status bar -->
     <div class="status-bar" id="statusBar">
       <span class="dot red" id="statusDot"></span>
       <span id="statusText">Checking...</span>
       <span class="sender-info" id="senderInfo"></span>
-      <div class="sender-actions" id="senderActions" style="display:none">
-        <button class="btn btn-ghost btn-sm" onclick="window.open('/qr','_blank')">Scan QR</button>
-        <button class="btn btn-ghost btn-sm" onclick="showPairInput()">Pairing Code</button>
-        <button class="btn btn-ghost btn-sm btn-danger" onclick="disconnectSender()" style="background:#2a1a1a;border-color:#ef4444;color:#ef4444">Ganti Nomor</button>
-      </div>
-    </div>
-
-    <!-- Pair input (hidden by default) -->
-    <div id="pairSection" style="display:none" class="card">
-      <label>Masukkan nomor WhatsApp untuk pairing (format: 628xxxxxxxxxx)</label>
-      <div class="pair-section">
-        <input type="text" id="pairPhone" placeholder="08xxxxxxxxxx">
-        <button class="btn btn-primary btn-sm" onclick="requestPair()">Get Code</button>
-      </div>
-      <div id="pairResult" style="margin-top:8px"></div>
     </div>
 
     <!-- Tabs -->
     <div class="tabs">
-      <div class="tab active" onclick="switchTab('quick')">⚡ Quick Send</div>
-      <div class="tab" onclick="switchTab('bulk')">📋 Bulk Import</div>
+      <div class="tab active" onclick="switchTab('sessions')">Sessions</div>
+      <div class="tab" onclick="switchTab('quick')">Quick Send</div>
+      <div class="tab" onclick="switchTab('bulk')">Bulk Import</div>
+      <div class="tab" onclick="switchTab('chats')">Chats</div>
+      <div class="tab" onclick="switchTab('history')">History</div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- TAB: Sessions -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div class="tab-content active" id="tab-sessions">
+      <div class="card">
+        <h2>WhatsApp Sessions</h2>
+        <div style="display:flex;gap:8px;margin-bottom:16px" id="addSessionForm">
+          <input type="text" id="newSessionName" placeholder="Nama session (misal: Marketing)" style="flex:1">
+          <button class="btn btn-primary btn-sm" onclick="createSession()">Add</button>
+        </div>
+        <div id="sessionsList">
+          <div class="empty-state">Loading sessions...</div>
+        </div>
+      </div>
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <!-- TAB: Quick Send -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <div class="tab-content active" id="tab-quick">
+    <div class="tab-content" id="tab-quick">
+      <div class="card" style="padding:12px 16px;margin-bottom:12px">
+        <label>Sender</label>
+        <select id="quickSessionSelect"></select>
+      </div>
+
       <div class="card">
         <h2>Nomor Tujuan</h2>
         <input type="text" id="quickPhone" placeholder="081234567890">
@@ -155,11 +220,11 @@
       <div class="card">
         <h2>Pesan</h2>
         <textarea id="quickMessage" placeholder="Tulis pesan. Greeting dan variasi otomatis ditambahkan tiap pengiriman."></textarea>
-        <div class="hint">Tiap pesan otomatis di-variasi: greeting, tanda baca, spasi invisible — supaya tidak terdeteksi bot.</div>
+        <div class="hint">Tiap pesan otomatis di-variasi: greeting, tanda baca, spasi invisible - supaya tidak terdeteksi bot.</div>
       </div>
 
       <div class="info-box">
-        ⚠ Anti-ban: delay 3-8 detik antar pesan, jeda 30-60 detik setiap 10 pesan.
+        Anti-ban: delay 3-8 detik antar pesan, jeda 30-60 detik setiap 10 pesan.
       </div>
 
       <button class="btn btn-primary" id="quickSendBtn" onclick="quickSend()" style="width:100%">Kirim</button>
@@ -180,6 +245,11 @@
     <!-- TAB: Bulk Import -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <div class="tab-content" id="tab-bulk">
+      <div class="card" style="padding:12px 16px;margin-bottom:12px">
+        <label>Sender</label>
+        <select id="bulkSessionSelect"></select>
+      </div>
+
       <!-- Step 1: Upload -->
       <div class="card">
         <h2><span class="step-num" id="step1">1</span> Import Data</h2>
@@ -210,7 +280,7 @@
         <div class="delay-row">
           <span>Delay:</span>
           <input type="number" id="delayMin" value="3" min="1" max="30">
-          <span>—</span>
+          <span>-</span>
           <input type="number" id="delayMax" value="7" min="1" max="60">
           <span>detik antar pesan</span>
         </div>
@@ -229,77 +299,212 @@
         <div class="results" id="results"></div>
       </div>
     </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- TAB: Chats -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div class="tab-content" id="tab-chats">
+      <div class="card" style="padding:12px 16px;margin-bottom:12px">
+        <label>Session</label>
+        <select id="chatSessionSelect" onchange="loadChats()"></select>
+      </div>
+      <div id="chatsList">
+        <div class="empty-state">Pilih session untuk melihat percakapan</div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- TAB: History -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div class="tab-content" id="tab-history">
+      <div id="historyList">
+        <div class="empty-state">Loading...</div>
+      </div>
+    </div>
   </div>
 
   <script>
     let columns = [];
     let contactCount = 0;
     let pollInterval = null;
+    let sessionsCache = [];
+    let sessionPollInterval = null;
+    let expandedChat = null;
+
+    const TAB_NAMES = ['sessions', 'quick', 'bulk', 'chats', 'history'];
 
     // ─── Tab switching ───
     function switchTab(name) {
-      document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === (name === 'quick' ? 0 : 1)));
+      TAB_NAMES.forEach((n, i) => {
+        document.querySelectorAll('.tab')[i].classList.toggle('active', n === name);
+      });
       document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
       document.getElementById('tab-' + name).classList.add('active');
+      if (name === 'chats') loadChats();
+      if (name === 'history') loadHistory();
     }
 
-    // ─── Health check + sender info ───
+    // ─── Health check ───
     async function checkHealth() {
       try {
-        const r = await fetch("/health");
-        const d = await r.json();
+        const r = await fetch("/api/sessions");
+        const sessions = await r.json();
+        const connected = sessions.filter(s => s.connected);
         const dot = document.getElementById("statusDot");
         const text = document.getElementById("statusText");
-        const sender = document.getElementById("senderInfo");
-        const actions = document.getElementById("senderActions");
-        if (d.status === "connected") {
+        const info = document.getElementById("senderInfo");
+        if (connected.length > 0) {
           dot.className = "dot green";
-          text.textContent = "Terhubung";
-          sender.textContent = d.sender ? `Sender: ${d.sender}` : "";
-          actions.style.display = "flex";
+          text.textContent = `${connected.length} session terhubung`;
+          info.textContent = connected.map(s => s.phone ? `+${s.phone}` : s.name).join(", ");
+        } else if (sessions.length > 0) {
+          dot.className = "dot yellow";
+          text.textContent = "Belum ada session terhubung";
+          info.textContent = "";
         } else {
           dot.className = "dot yellow";
-          text.innerHTML = 'Belum terhubung — <a href="/qr" style="color:#eab308" target="_blank">Scan QR</a>';
-          sender.textContent = "";
-          actions.style.display = "flex";
+          text.textContent = "Belum ada session - tambahkan di tab Sessions";
+          info.textContent = "";
         }
       } catch {
         document.getElementById("statusDot").className = "dot red";
         document.getElementById("statusText").textContent = "Server tidak tersedia";
-        document.getElementById("senderActions").style.display = "none";
+        document.getElementById("senderInfo").textContent = "";
       }
     }
-    checkHealth();
-    setInterval(checkHealth, 10000);
 
-    // ─── Sender config ───
-    function showPairInput() {
-      const el = document.getElementById("pairSection");
+    // ─── Sessions ───
+    async function fetchSessions() {
+      try {
+        const r = await fetch("/api/sessions");
+        sessionsCache = await r.json();
+      } catch { sessionsCache = []; }
+      return sessionsCache;
+    }
+
+    function populateSessionSelects(sessions) {
+      const selects = ['quickSessionSelect', 'bulkSessionSelect', 'chatSessionSelect'];
+      for (const id of selects) {
+        const el = document.getElementById(id);
+        const prev = el.value;
+        el.innerHTML = '<option value="">Select sender...</option>';
+        for (const s of sessions) {
+          if (!s.connected) continue;
+          const label = s.phone ? `${s.name} (+${s.phone})` : s.name;
+          el.innerHTML += `<option value="${escHtml(s.id)}">${escHtml(label)}</option>`;
+        }
+        if (prev && el.querySelector(`option[value="${prev}"]`)) el.value = prev;
+      }
+    }
+
+    async function refreshSessions() {
+      const sessions = await fetchSessions();
+      populateSessionSelects(sessions);
+      renderSessionsList(sessions);
+      checkHealth();
+    }
+
+    function renderSessionsList(sessions) {
+      const el = document.getElementById("sessionsList");
+      if (!sessions.length) {
+        el.innerHTML = '<div class="empty-state">Belum ada session. Klik Add untuk menambahkan.</div>';
+        return;
+      }
+      el.innerHTML = sessions.map(s => {
+        const statusClass = s.connected ? 'green' : (s.hasQr ? 'yellow' : 'red');
+        const statusText = s.connected ? 'Connected' : (s.hasQr ? 'Waiting for QR scan' : s.status || 'Disconnected');
+        const phoneHtml = s.phone ? `<span class="session-phone">+${escHtml(s.phone)}</span>` : '';
+        const qrHtml = s.hasQr ? `<div class="session-qr" id="qr-${escHtml(s.id)}"><img src="" alt="QR"><p style="font-size:12px;color:#888;margin-top:4px">Scan dengan WhatsApp</p></div>` : '';
+        return `<div class="session-card" data-id="${escHtml(s.id)}">
+          <div class="session-header">
+            <span class="dot ${statusClass}"></span>
+            <span class="session-name">${escHtml(s.name)}</span>
+            ${phoneHtml}
+          </div>
+          <div class="session-status">${statusText}</div>
+          ${qrHtml}
+          <div id="pair-${escHtml(s.id)}" style="display:none;margin-top:8px">
+            <div class="pair-section">
+              <input type="text" placeholder="628xxxxxxxxxx" id="pair-phone-${escHtml(s.id)}">
+              <button class="btn btn-primary btn-sm" onclick="requestSessionPair('${escHtml(s.id)}')">Get Code</button>
+            </div>
+            <div id="pair-result-${escHtml(s.id)}" style="margin-top:6px"></div>
+          </div>
+          <div class="session-actions">
+            ${!s.connected ? `<button class="btn btn-ghost btn-sm" onclick="togglePairInput('${escHtml(s.id)}')">Pairing Code</button>` : ''}
+            <button class="btn btn-ghost btn-sm" onclick="removeSession('${escHtml(s.id)}', '${escHtml(s.name)}')" style="border-color:#ef4444;color:#ef4444">Remove</button>
+          </div>
+        </div>`;
+      }).join("");
+
+      for (const s of sessions) {
+        if (s.hasQr) loadSessionQr(s.id);
+      }
+    }
+
+    async function loadSessionQr(sessionId) {
+      try {
+        const r = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/qr`);
+        const d = await r.json();
+        const img = document.querySelector(`#qr-${CSS.escape(sessionId)} img`);
+        if (img && d.qr) img.src = d.qr;
+      } catch {}
+    }
+
+    async function createSession() {
+      const name = document.getElementById("newSessionName").value.trim();
+      if (!name) return;
+      try {
+        const r = await fetch("/api/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name }),
+        });
+        const d = await r.json();
+        if (!r.ok) { alert(d.error || "Failed"); return; }
+        document.getElementById("newSessionName").value = "";
+        await refreshSessions();
+      } catch (err) { alert(err.message); }
+    }
+
+    function togglePairInput(sessionId) {
+      const el = document.getElementById(`pair-${sessionId}`);
       el.style.display = el.style.display === "none" ? "block" : "none";
     }
 
-    async function requestPair() {
-      const phone = document.getElementById("pairPhone").value.replace(/\D/g, "");
+    async function requestSessionPair(sessionId) {
+      const phone = document.getElementById(`pair-phone-${sessionId}`).value.replace(/\D/g, "");
       if (!phone) return;
-      const r = await fetch(`/pair?phone=${phone}`);
-      const html = await r.text();
-      const match = html.match(/Pairing Code:.*?(\d[\d\s-]+)/);
-      document.getElementById("pairResult").innerHTML = match
-        ? `<span style="color:#22c55e;font-size:24px;font-weight:700;letter-spacing:4px">${match[1]}</span>`
-        : `<span style="color:#ef4444">${r.ok ? 'Code generated — check the page' : 'Error'}</span>`;
+      try {
+        const r = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/pair`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone }),
+        });
+        const d = await r.json();
+        document.getElementById(`pair-result-${sessionId}`).innerHTML = d.code
+          ? `<span style="color:#22c55e;font-size:24px;font-weight:700;letter-spacing:4px">${d.code}</span>`
+          : `<span style="color:#ef4444">${d.error || 'Error'}</span>`;
+      } catch (err) {
+        document.getElementById(`pair-result-${sessionId}`).innerHTML = `<span style="color:#ef4444">${err.message}</span>`;
+      }
     }
 
-    async function disconnectSender() {
-      if (!confirm("Disconnect WhatsApp? Harus scan QR / pair lagi untuk reconnect.")) return;
-      await fetch("/api/disconnect", { method: "POST" });
-      checkHealth();
+    async function removeSession(sessionId, name) {
+      if (!confirm(`Remove session "${name}"? This will disconnect and delete the session.`)) return;
+      try {
+        await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" });
+        await refreshSessions();
+      } catch (err) { alert(err.message); }
     }
 
     // ─── Quick Send ───
     async function quickSend() {
+      const sessionId = document.getElementById("quickSessionSelect").value;
       const phone = document.getElementById("quickPhone").value.trim();
       const message = document.getElementById("quickMessage").value.trim();
       const count = parseInt(document.getElementById("quickCount").value) || 1;
+      if (!sessionId) return alert("Pilih sender dulu");
       if (!phone || !message) return alert("Isi nomor dan pesan");
 
       const btn = document.getElementById("quickSendBtn");
@@ -315,7 +520,7 @@
         const res = await fetch("/api/quick-send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone, message, count }),
+          body: JSON.stringify({ sessionId, phone, message, count }),
         });
 
         const reader = res.body.getReader();
@@ -344,19 +549,19 @@
               document.getElementById("quickStats").textContent = `${sent} terkirim · ${failed} gagal`;
 
               const el = document.getElementById("quickResults");
-              el.innerHTML = `<div class="result-row"><span class="phone">${d.phone} #${current}</span><span class="result-${d.status}">${d.status}</span>${d.variant ? `<span class="result-variant">${escHtml(d.variant)}</span>` : ''}${d.error ? `<span class="result-failed">${escHtml(d.error)}</span>` : ''}</div>` + el.innerHTML;
+              el.innerHTML = `<div class="result-row"><span class="phone">${escHtml(d.phone)} #${current}</span><span class="result-${d.status}">${d.status}</span>${d.variant ? `<span class="result-variant">${escHtml(d.variant)}</span>` : ''}${d.error ? `<span class="result-failed">${escHtml(d.error)}</span>` : ''}</div>` + el.innerHTML;
             } catch {}
           }
         }
       } catch (err) {
-        document.getElementById("quickResults").innerHTML = `<div class="result-row"><span class="result-failed">${err.message}</span></div>`;
+        document.getElementById("quickResults").innerHTML = `<div class="result-row"><span class="result-failed">${escHtml(err.message)}</span></div>`;
       }
 
       btn.disabled = false;
       btn.textContent = "Kirim";
     }
 
-    function escHtml(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+    function escHtml(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
     // ─── Bulk: Upload ───
     async function uploadFile(input) {
@@ -367,22 +572,22 @@
       const r = await fetch("/api/upload", { method: "POST", body: form });
       const d = await r.json();
       if (!r.ok) {
-        document.getElementById("uploadResult").innerHTML = `<p style="color:#ef4444;margin-top:8px">${d.error}</p>`;
+        document.getElementById("uploadResult").innerHTML = `<p style="color:#ef4444;margin-top:8px">${escHtml(d.error)}</p>`;
         return;
       }
       contactCount = d.count;
       columns = d.columns;
       document.getElementById("uploadArea").className = "upload-area has-file";
-      document.getElementById("uploadArea").innerHTML = `<p class="upload-info">${file.name} — ${d.count} kontak</p>`;
+      document.getElementById("uploadArea").innerHTML = `<p class="upload-info">${escHtml(file.name)} - ${d.count} kontak</p>`;
       document.getElementById("step1").className = "step-num active";
-      document.getElementById("columnTags").innerHTML = columns.map(c => `<span class="col-tag" onclick="insertTag('${c}')">{{${c}}}</span>`).join("");
+      document.getElementById("columnTags").innerHTML = columns.map(c => `<span class="col-tag" onclick="insertTag('${escHtml(c)}')">{{${escHtml(c)}}}</span>`).join("");
       document.getElementById("previewBtn").disabled = false;
       updateBlastBtn();
 
       let html = '<div style="margin-top:12px;font-size:12px;color:#666;overflow-x:auto"><table style="width:100%;border-collapse:collapse">';
-      html += '<tr>' + columns.map(c => `<th style="text-align:left;padding:4px 8px;border-bottom:1px solid #262626;color:#888">${c}</th>`).join("") + '</tr>';
+      html += '<tr>' + columns.map(c => `<th style="text-align:left;padding:4px 8px;border-bottom:1px solid #262626;color:#888">${escHtml(c)}</th>`).join("") + '</tr>';
       d.preview.forEach(row => {
-        html += '<tr>' + columns.map(c => `<td style="padding:4px 8px;border-bottom:1px solid #1a1a1a">${row[c] ?? ''}</td>`).join("") + '</tr>';
+        html += '<tr>' + columns.map(c => `<td style="padding:4px 8px;border-bottom:1px solid #1a1a1a">${escHtml(row[c] ?? '')}</td>`).join("") + '</tr>';
       });
       html += '</table></div>';
       document.getElementById("uploadResult").innerHTML = html;
@@ -407,7 +612,7 @@
       if (!r.ok) return;
       document.getElementById("step2").className = "step-num active";
       document.getElementById("previewArea").innerHTML = d.previews.map((p, i) =>
-        `<div class="preview-box"><div class="preview-label">Preview #${i + 1}</div>${p.rendered}</div>`
+        `<div class="preview-box"><div class="preview-label">Preview #${i + 1}</div>${escHtml(p.rendered)}</div>`
       ).join("");
       updateBlastBtn();
     }
@@ -419,10 +624,16 @@
 
     // ─── Bulk: Blast ───
     async function startBlast() {
+      const sessionId = document.getElementById("bulkSessionSelect").value;
+      if (!sessionId) return alert("Pilih sender dulu");
       const template = document.getElementById("template").value;
       const delayMin = parseInt(document.getElementById("delayMin").value) || 3;
       const delayMax = parseInt(document.getElementById("delayMax").value) || 7;
-      const r = await fetch("/api/blast", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ template, delayMin, delayMax }) });
+      const r = await fetch("/api/blast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, template, delayMin, delayMax }),
+      });
       const d = await r.json();
       if (!r.ok) { alert(d.error); return; }
       document.getElementById("blastBtn").style.display = "none";
@@ -443,8 +654,8 @@
       document.getElementById("progressText").textContent = `${d.current ?? 0} / ${d.total ?? 0}`;
       document.getElementById("progressStats").textContent = `${d.sent ?? 0} terkirim · ${d.failed ?? 0} gagal`;
       const el = document.getElementById("results");
-      el.innerHTML = d.results.slice().reverse().map(r =>
-        `<div class="result-row"><span class="phone">${r.phone}</span><span class="result-${r.status}">${r.status}${r.error ? ' — ' + r.error : ''}</span></div>`
+      el.innerHTML = (d.results || []).slice().reverse().map(r =>
+        `<div class="result-row"><span class="phone">${escHtml(r.phone)}</span><span class="result-${r.status}">${r.status}${r.error ? ' - ' + escHtml(r.error) : ''}</span></div>`
       ).join("");
       if (["done", "cancelled", "error_stopped", "banned"].includes(d.status)) {
         clearInterval(pollInterval);
@@ -475,6 +686,197 @@
       document.getElementById("fileInput").value = "";
       ["step1","step2","step3"].forEach(s => document.getElementById(s).className = "step-num");
     }
+
+    // ─── Chats ───
+    async function loadChats() {
+      const sessionId = document.getElementById("chatSessionSelect").value;
+      const el = document.getElementById("chatsList");
+      if (!sessionId) {
+        el.innerHTML = '<div class="empty-state">Pilih session untuk melihat percakapan</div>';
+        return;
+      }
+      el.innerHTML = '<div class="empty-state">Loading...</div>';
+      try {
+        const r = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/chats?limit=50`);
+        const chats = await r.json();
+        if (!chats.length) {
+          el.innerHTML = '<div class="empty-state">Belum ada percakapan</div>';
+          return;
+        }
+        el.innerHTML = chats.map(c => {
+          const jidDisplay = c.jid.replace(/@s\.whatsapp\.net$/, "");
+          const phone = jidDisplay.startsWith("62") ? "+" + jidDisplay : jidDisplay;
+          const time = c.last_message_at ? formatTime(c.last_message_at) : "";
+          return `<div class="chat-item" onclick="toggleChat(this, '${escHtml(sessionId)}', '${escHtml(c.jid)}')" data-jid="${escHtml(c.jid)}">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span class="chat-jid">${escHtml(phone)}</span>
+              <span class="chat-time">${escHtml(time)}</span>
+            </div>
+            <div class="chat-stats">${c.sent_count} sent · ${c.received_count} received${c.read_count > 0 ? ` · ${c.read_count} read` : ''}${c.delivered_count > 0 ? ` · ${c.delivered_count} delivered` : ''}</div>
+            <div class="chat-messages" style="display:none"></div>
+          </div>`;
+        }).join("");
+      } catch (err) {
+        el.innerHTML = `<div class="empty-state" style="color:#ef4444">${escHtml(err.message)}</div>`;
+      }
+    }
+
+    async function toggleChat(el, sessionId, jid) {
+      const msgEl = el.querySelector('.chat-messages');
+      if (el.classList.contains('active')) {
+        el.classList.remove('active');
+        msgEl.style.display = 'none';
+        msgEl.innerHTML = '';
+        return;
+      }
+      document.querySelectorAll('.chat-item').forEach(c => {
+        c.classList.remove('active');
+        c.querySelector('.chat-messages').style.display = 'none';
+        c.querySelector('.chat-messages').innerHTML = '';
+      });
+      el.classList.add('active');
+      msgEl.style.display = 'block';
+      msgEl.innerHTML = '<div style="padding:12px;color:#666;font-size:13px">Loading...</div>';
+      await loadMessages(sessionId, jid, msgEl, 50, 0);
+    }
+
+    async function loadMessages(sessionId, jid, container, limit, offset) {
+      try {
+        const r = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/chats/${encodeURIComponent(jid)}/messages?limit=${limit}&offset=${offset}`);
+        const msgs = await r.json();
+        let html = '<div class="messages-container">';
+        const reversed = msgs.slice().reverse();
+        for (const m of reversed) {
+          const isOut = m.direction === 'outgoing';
+          const statusIcon = isOut ? getStatusIcon(m.status) : '';
+          const senderHtml = (!isOut && m.sender_name) ? `<div class="msg-sender">${escHtml(m.sender_name)}</div>` : '';
+          html += `<div class="msg-bubble ${isOut ? 'msg-out' : 'msg-in'}">
+            ${senderHtml}
+            ${escHtml(m.content || '')}
+            <div class="msg-meta">
+              <span>${formatTime(m.created_at)}</span>
+              ${statusIcon ? `<span class="msg-status ${m.status}">${statusIcon}</span>` : ''}
+            </div>
+          </div>`;
+        }
+        html += '</div>';
+        if (msgs.length >= limit) {
+          html += `<div class="load-more-btn"><button class="btn btn-ghost btn-sm" onclick="loadMoreMessages(this, '${escHtml(sessionId)}', '${escHtml(jid)}', ${offset + limit})">Load more</button></div>`;
+        }
+        container.innerHTML = html;
+      } catch (err) {
+        container.innerHTML = `<div style="padding:12px;color:#ef4444;font-size:13px">${escHtml(err.message)}</div>`;
+      }
+    }
+
+    async function loadMoreMessages(btn, sessionId, jid, offset) {
+      btn.disabled = true;
+      btn.textContent = "Loading...";
+      try {
+        const r = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/chats/${encodeURIComponent(jid)}/messages?limit=50&offset=${offset}`);
+        const msgs = await r.json();
+        const container = btn.closest('.chat-messages').querySelector('.messages-container');
+        const reversed = msgs.slice().reverse();
+        let html = '';
+        for (const m of reversed) {
+          const isOut = m.direction === 'outgoing';
+          const statusIcon = isOut ? getStatusIcon(m.status) : '';
+          const senderHtml = (!isOut && m.sender_name) ? `<div class="msg-sender">${escHtml(m.sender_name)}</div>` : '';
+          html = `<div class="msg-bubble ${isOut ? 'msg-out' : 'msg-in'}">
+            ${senderHtml}
+            ${escHtml(m.content || '')}
+            <div class="msg-meta">
+              <span>${formatTime(m.created_at)}</span>
+              ${statusIcon ? `<span class="msg-status ${m.status}">${statusIcon}</span>` : ''}
+            </div>
+          </div>` + html;
+        }
+        container.insertAdjacentHTML('afterbegin', html);
+        if (msgs.length >= 50) {
+          btn.disabled = false;
+          btn.textContent = "Load more";
+          btn.onclick = () => loadMoreMessages(btn, sessionId, jid, offset + 50);
+        } else {
+          btn.parentElement.remove();
+        }
+      } catch { btn.disabled = false; btn.textContent = "Load more"; }
+    }
+
+    function getStatusIcon(status) {
+      switch (status) {
+        case 'pending': return '⌛';
+        case 'sent': return '✓';
+        case 'delivered': return '✓✓';
+        case 'read': return '✓✓';
+        case 'failed': return '✗';
+        default: return '';
+      }
+    }
+
+    function formatTime(ts) {
+      if (!ts) return '';
+      const d = new Date(ts.endsWith('Z') ? ts : ts + 'Z');
+      if (isNaN(d)) return ts;
+      const now = new Date();
+      const isToday = d.toDateString() === now.toDateString();
+      const time = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      if (isToday) return time;
+      return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' ' + time;
+    }
+
+    // ─── History ───
+    async function loadHistory() {
+      const el = document.getElementById("historyList");
+      try {
+        const r = await fetch("/api/history");
+        const jobs = await r.json();
+        if (!jobs.length) {
+          el.innerHTML = '<div class="empty-state">Belum ada blast history</div>';
+          return;
+        }
+        el.innerHTML = jobs.map(j => {
+          const total = j.total || 0;
+          const sentPct = total > 0 ? ((j.sent || 0) / total * 100) : 0;
+          const failedPct = total > 0 ? ((j.failed || 0) / total * 100) : 0;
+          const deliveredPct = total > 0 ? ((j.delivered || 0) / total * 100) : 0;
+          const readPct = total > 0 ? ((j.read_count || 0) / total * 100) : 0;
+          return `<div class="history-card">
+            <div class="history-header">
+              <span style="font-size:13px;color:#888">${escHtml(j.id)}</span>
+              <span class="history-status ${j.status}">${j.status}</span>
+            </div>
+            <div class="history-stats">
+              <span>Total: ${total}</span>
+              <span style="color:#22c55e">Sent: ${j.sent || 0}</span>
+              <span style="color:#ef4444">Failed: ${j.failed || 0}</span>
+              ${j.delivered ? `<span style="color:#3b82f6">Delivered: ${j.delivered}</span>` : ''}
+              ${j.read_count ? `<span style="color:#8b5cf6">Read: ${j.read_count}</span>` : ''}
+            </div>
+            <div class="delivery-bar">
+              <div class="read-seg" style="width:${readPct}%"></div>
+              <div class="delivered" style="width:${deliveredPct}%"></div>
+              <div class="sent" style="width:${Math.max(0, sentPct - deliveredPct - readPct)}%"></div>
+              <div class="failed" style="width:${failedPct}%"></div>
+            </div>
+            <div class="delivery-legend">
+              <span class="l-sent">Sent</span>
+              <span class="l-delivered">Delivered</span>
+              <span class="l-read">Read</span>
+              <span class="l-failed">Failed</span>
+            </div>
+            <div class="history-time">
+              ${j.startedAt ? formatTime(j.startedAt) : ''} ${j.finishedAt ? '- ' + formatTime(j.finishedAt) : ''}
+            </div>
+          </div>`;
+        }).join("");
+      } catch (err) {
+        el.innerHTML = `<div class="empty-state" style="color:#ef4444">${escHtml(err.message)}</div>`;
+      }
+    }
+
+    // ─── Init ───
+    refreshSessions();
+    sessionPollInterval = setInterval(refreshSessions, 5000);
 
     // Drag & drop
     const area = document.getElementById("uploadArea");
