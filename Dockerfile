@@ -4,5 +4,6 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install --omit=dev
 COPY src/ ./src/
+RUN mkdir -p /app/data
 EXPOSE 3001
 CMD ["npm", "start"]
