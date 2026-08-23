@@ -1,70 +1,145 @@
 # WA Blast
 
-WhatsApp bulk messaging service built with [Baileys](https://github.com/WhiskeySockets/Baileys) and Express. Supports single/bulk message sending with auto-variation, reconnection handling, and template variables from CSV/Excel imports.
+WhatsApp bulk messaging service built with [Baileys](https://github.com/WhiskeySockets/Baileys) and Express. Supports multi-session login, bulk/single message sending with auto-variation, chat viewing, read receipt tracking, and reconnection handling.
 
 ## Tech Stack
 
 - **Runtime:** Node.js 20+
 - **WA Library:** @whiskeysockets/baileys 6.7.23
 - **Server:** Express 4
+- **Database:** SQLite via better-sqlite3 (message + session persistence)
 - **File Parsing:** csv-parse, xlsx
-- **Auth:** Multi-file auth state (persisted in `./auth_info/`)
+- **Auth:** Multi-file auth state per session (`./auth_info/{sessionId}/`)
 
 ## Architecture
 
 ```
 src/
   index.js        Express server + API routes
-  wa-client.js    Baileys socket management + reconnection logic
-  blast.js        Bulk send engine (retry, timeout, error classification)
+  db.js           SQLite database setup + prepared statements
+  sessions.js     Multi-session WhatsApp manager (replaces wa-client.js)
+  blast.js        Bulk send engine (session-aware, DB logging)
   phone.js        Phone number formatting (ID format)
   public/
-    index.html    Single-page frontend (vanilla JS)
+    index.html    Single-page frontend (5 tabs, vanilla JS)
+```
+
+### Multi-Session Design
+
+Each WhatsApp account is a "session" with its own Baileys socket, auth directory, and QR code. Multiple sessions can be connected simultaneously for blasting from different numbers.
+
+```
+sessions (Map)
+  "s_abc123" -> { sock, qr, reconnectAttempt, connectionLog }
+  "s_def456" -> { sock, qr, reconnectAttempt, connectionLog }
+
+auth_info/
+  s_abc123/   -> creds.json, app-state-sync-key-*.json, ...
+  s_def456/   -> creds.json, app-state-sync-key-*.json, ...
+
+data/
+  wa-blast.db -> sessions table, messages table (all sent/received/status)
 ```
 
 ### Connection Flow
 
-1. Server starts -> `initWhatsApp()` creates Baileys socket
-2. User scans QR at `/qr` or uses pairing code at `/pair?phone=628xxx`
-3. Session credentials saved to `./auth_info/`
-4. On disconnect: exponential backoff reconnect (max 8 attempts, 5s-60s + jitter)
-5. On logout (kicked by WA): clear session, restart for fresh QR
+1. Server starts -> `restoreSessions()` loads all sessions from DB and inits sockets
+2. User creates a session via UI or `POST /api/sessions`
+3. Scan QR or use pairing code to connect
+4. Session credentials saved to `./auth_info/{sessionId}/`
+5. On disconnect: exponential backoff reconnect (max 8 attempts, 5s-60s + jitter)
+6. On logout (kicked by WA): clear session auth, restart for fresh QR
+7. Legacy migration: existing `./auth_info/` files auto-migrated to `default` session
 
 ### Message Flow (Blast)
 
-1. Upload CSV/Excel via `/api/upload`
-2. Compose template with `{{column_name}}` variables (case-insensitive)
-3. Preview with `/api/preview`
-4. Start blast via `/api/blast` -> runs async in background
-5. Poll status via `/api/status`
+1. Select sender session from dropdown
+2. Upload CSV/Excel via `/api/upload`
+3. Compose template with `{{column_name}}` variables (case-insensitive)
+4. Preview with `/api/preview`
+5. Start blast via `/api/blast` -> runs async in background
+6. All sent messages logged to SQLite with delivery status tracking
+7. Read receipts tracked via Baileys `messages.update` events
 
 Each message: 20s send timeout -> up to 2 retries on connection/timeout errors -> wait for reconnect if socket dies (30s max).
 
+### Message Tracking
+
+All messages (incoming + outgoing) are stored in SQLite:
+
+| Status | Meaning |
+|--------|---------|
+| `pending` | Message queued |
+| `sent` | Server acknowledged |
+| `delivered` | Delivered to recipient |
+| `read` | Read by recipient |
+| `failed` | Send failed after retries |
+| `received` | Incoming message |
+
+Status updates come from Baileys `messages.update` event (status enum: 2=sent, 3=delivered, 4=read).
+
 ## API Endpoints
+
+### Session Management
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/qr` | QR code page for WhatsApp login |
-| GET | `/pair?phone=628xxx` | Get pairing code |
-| GET | `/health` | Connection status + sender info |
-| POST | `/api/disconnect` | Disconnect + clear session (to switch sender) |
-| POST | `/api/upload` | Upload CSV/Excel contacts |
-| POST | `/api/preview` | Preview template rendering |
-| POST | `/api/send` | Send single message |
-| POST | `/api/quick-send` | Send N varied messages to one number |
-| POST | `/api/blast` | Start bulk blast |
+| POST | `/api/sessions` | Create new session `{name}` |
+| GET | `/api/sessions` | List all sessions |
+| GET | `/api/sessions/:id` | Session detail + connection log |
+| DELETE | `/api/sessions/:id` | Remove session (logout + clear auth) |
+| GET | `/api/sessions/:id/qr` | Get QR data URL |
+| POST | `/api/sessions/:id/pair` | Request pairing code `{phone}` |
+
+### Chat & Messages
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/sessions/:id/chats` | List conversations `?limit=50&offset=0` |
+| GET | `/api/sessions/:id/chats/:jid/messages` | Get messages `?limit=50&offset=0` |
+| GET | `/api/blast/:jobId/stats` | Blast delivery stats (sent/delivered/read) |
+
+### Messaging
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/send` | Send single message `{phone, message, sessionId?}` |
+| POST | `/api/quick-send` | Send N varied messages `{phone, message, count, sessionId?}` |
+| POST | `/api/blast` | Start bulk blast `{template, sessionId?, delayMin, delayMax}` |
 | GET | `/api/status` | Blast job status (polling) |
 | POST | `/api/cancel` | Cancel running blast |
 | GET | `/api/history` | Past blast job history |
-| GET | `/api/connection-log` | WA connection event log |
+
+### System
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health` | All sessions status + contact count |
+| GET | `/qr` | QR page (legacy, shows all pending QRs) |
+| POST | `/api/upload` | Upload CSV/Excel contacts |
+| POST | `/api/preview` | Preview template rendering |
+| POST | `/api/disconnect` | Disconnect session `{sessionId?}` |
+| GET | `/api/connection-log` | Connection event log `?sessionId=` |
 | POST | `/api/clear` | Clear uploaded contacts |
+
+All send endpoints accept optional `sessionId`. If omitted, uses the first connected session.
+
+## Frontend
+
+5-tab interface:
+
+1. **Sessions** — add/remove WhatsApp connections, scan QR, pair code
+2. **Quick Send** — send varied messages to single number with session selector
+3. **Bulk Import** — upload contacts, compose template, blast with session selector
+4. **Chats** — view conversations per session, message bubbles with read status
+5. **History** — blast job history with delivery breakdown (sent/delivered/read/failed)
 
 ## Reliability Features
 
-### Reconnection (wa-client.js)
-- Max 8 reconnect attempts with exponential backoff (5s increments, capped at 60s + random jitter)
+### Reconnection (sessions.js)
+- Max 8 reconnect attempts per session with exponential backoff (5s increments, capped at 60s + random jitter)
 - Logged out detection: clears session files, restarts with fresh QR
-- Connection log maintained (last 200 events)
+- Connection log maintained per session (last 200 events)
 
 ### Blast Resilience (blast.js)
 - **Send timeout:** 20s per message (prevents socket hangs)
@@ -74,6 +149,7 @@ Each message: 20s send timeout -> up to 2 retries on connection/timeout errors -
 - **Consecutive error guard:** 5 errors -> 30s cooldown, 10 errors -> auto-stop
 - **Ban detection:** Immediate stop if banned/blocked detected
 - **Error classification:** rate_limit, banned, invalid_number, timeout, connection, auth
+- **DB logging:** Every sent/failed message stored in SQLite for tracking
 
 ### Anti-Detection (Quick Send)
 - Random greeting prefixes (Halo, Hai, Hi, Assalamualaikum, etc.)
@@ -114,7 +190,10 @@ npm run dev      # dev with --watch
 
 ```bash
 docker build -t wa-blast .
-docker run -p 3001:3001 -v ./auth_info:/app/auth_info wa-blast
+docker run -p 3001:3001 \
+  -v ./auth_info:/app/auth_info \
+  -v ./data:/app/data \
+  wa-blast
 ```
 
 ### Environment Variables
@@ -123,14 +202,22 @@ docker run -p 3001:3001 -v ./auth_info:/app/auth_info wa-blast
 |----------|---------|-------------|
 | `PORT` | `3001` | Server port |
 | `LOG_LEVEL` | `info` | Pino log level (debug, info, warn, error) |
+| `DB_PATH` | `./data/wa-blast.db` | SQLite database file path |
 
-## Logs
+### Railway
 
-Blast results are saved as JSON in `./logs/blast-{timestamp}.json` containing:
-- Job metadata (id, status, duration, timestamps)
-- Per-message results (phone, status, send time, retries)
-- Error breakdown by type
-- Rate limit hit count
-- Max consecutive errors
+Add a volume for `/app/data` to persist the SQLite database between deployments. The existing `/app/auth_info` volume continues to store per-session auth files.
 
-Job history (last 50 jobs) is kept in-memory and available via `/api/history`.
+## Data Storage
+
+### SQLite Database (`./data/wa-blast.db`)
+- **sessions** — id, name, phone, status, timestamps
+- **messages** — session_id, jid, direction, content, message_id, status, blast_job_id, sender_name, timestamps
+
+### JSON Logs (`./logs/`)
+- Blast results saved as `blast-{timestamp}.json` (legacy, kept for backup)
+- Contains job metadata, per-message results, error breakdown
+
+### In-Memory
+- Job history (last 50 jobs) available via `/api/history`
+- Connection logs per session (last 200 events)
