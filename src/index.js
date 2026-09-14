@@ -145,36 +145,9 @@ app.post("/api/disconnect", async (req, res) => {
   }
 });
 
-// ─── Quick send (single number, N messages, with variation) ─────────────
+// ─── Quick send (single number, N messages) ─────────────────────────────
 
-const GREETINGS = ["Halo", "Hai", "Hi", "Hey", "Selamat pagi", "Selamat siang", "Selamat sore", "Assalamualaikum", "Salam"];
-const CLOSINGS = ["", "", "", "", "Terima kasih.", "Terimakasih.", "Makasih ya.", "Thanks."];
-const ZWSP = "​";
-const ZWNJ = "‌";
-
-function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
-
-function varyMessage(base, _index) {
-  const parts = [];
-  parts.push(pick(GREETINGS) + (Math.random() > 0.5 ? "," : "!"));
-  parts.push("");
-  for (const line of base.split("\n")) {
-    let v = line;
-    if (Math.random() > 0.7) v = v.replace(/\./g, () => Math.random() > 0.5 ? "." : "..");
-    if (Math.random() > 0.6) {
-      const w = v.split(" ");
-      const pos = randInt(1, Math.max(1, w.length - 1));
-      w.splice(pos, 0, pick([ZWSP, ZWNJ]));
-      v = w.join(" ");
-    }
-    if (Math.random() > 0.8) v += " ";
-    parts.push(v);
-  }
-  const closing = pick(CLOSINGS);
-  if (closing) { parts.push(""); parts.push(closing); }
-  return parts.join("\n");
-}
 
 app.post("/api/quick-send", async (req, res) => {
   const { phone, message, count = 1, delayMin = 3, delayMax = 8, sessionId: reqSessionId } = req.body;
@@ -198,18 +171,16 @@ app.post("/api/quick-send", async (req, res) => {
   let sent = 0, failed = 0;
 
   for (let i = 0; i < count; i++) {
-    const varied = varyMessage(message, i);
-
     if (i > 0) {
       const delay = i % 10 === 0 ? randInt(30, 60) : randInt(delayMin, delayMax);
       await new Promise(r => setTimeout(r, delay * 1000));
     }
 
     try {
-      const result = await sendWithRetry(sessionId, jid, { text: varied }, logger);
+      const result = await sendWithRetry(sessionId, jid, { text: message }, logger);
       sent++;
-      try { stmts.insertMessage.run(sessionId, jid, "outgoing", varied, result?.key?.id || null, "sent", null, null); } catch {}
-      res.write(JSON.stringify({ index: i, phone: display, status: "sent", variant: varied.substring(0, 80), messageId: result?.key?.id }) + "\n");
+      try { stmts.insertMessage.run(sessionId, jid, "outgoing", message, result?.key?.id || null, "sent", null, null); } catch {}
+      res.write(JSON.stringify({ index: i, phone: display, status: "sent", messageId: result?.key?.id }) + "\n");
       logger.info({ index: i, phone: display, jid, messageId: result?.key?.id }, `Quick send ${i + 1}/${count}`);
     } catch (err) {
       failed++;
