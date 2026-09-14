@@ -83,7 +83,6 @@
     .result-sent { color: #22c55e; }
     .result-failed { color: #ef4444; }
     .result-skipped { color: #eab308; }
-    .result-variant { color: #666; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 400px; }
 
     /* Delay row */
     .delay-row { display: flex; gap: 12px; align-items: center; margin-top: 12px; }
@@ -155,7 +154,6 @@
       .container { padding: 16px; }
       .tabs { gap: 4px; }
       .tab { padding: 8px 6px; font-size: 11px; }
-      .result-variant { max-width: 180px; }
       .msg-bubble { max-width: 90%; }
       .history-stats { flex-wrap: wrap; gap: 8px; }
     }
@@ -164,7 +162,7 @@
 <body>
   <div class="container">
     <h1>WA Blast</h1>
-    <p class="subtitle">Kirim pesan WhatsApp - tiap pesan di-variasi otomatis</p>
+    <p class="subtitle">Kirim pesan WhatsApp - satuan atau bulk</p>
 
     <!-- Status bar -->
     <div class="status-bar" id="statusBar">
@@ -213,14 +211,14 @@
         <div class="row">
           <label style="margin:0">Kirim</label>
           <input type="number" id="quickCount" value="5" min="1" max="200">
-          <span>pesan (tiap pesan beda dikit)</span>
+          <span>pesan</span>
         </div>
       </div>
 
       <div class="card">
         <h2>Pesan</h2>
-        <textarea id="quickMessage" placeholder="Tulis pesan. Greeting dan variasi otomatis ditambahkan tiap pengiriman."></textarea>
-        <div class="hint">Tiap pesan otomatis di-variasi: greeting, tanda baca, spasi invisible - supaya tidak terdeteksi bot.</div>
+        <textarea id="quickMessage" placeholder="Tulis pesan."></textarea>
+        <div class="hint">Pesan dikirim persis seperti yang ditulis.</div>
       </div>
 
       <div class="info-box">
@@ -549,7 +547,7 @@
               document.getElementById("quickStats").textContent = `${sent} terkirim · ${failed} gagal`;
 
               const el = document.getElementById("quickResults");
-              el.innerHTML = `<div class="result-row"><span class="phone">${escHtml(d.phone)} #${current}</span><span class="result-${d.status}">${d.status}</span>${d.variant ? `<span class="result-variant">${escHtml(d.variant)}</span>` : ''}${d.error ? `<span class="result-failed">${escHtml(d.error)}</span>` : ''}</div>` + el.innerHTML;
+              el.innerHTML = `<div class="result-row"><span class="phone">${escHtml(d.phone)} #${current}</span><span class="result-${d.status}">${d.status}</span>${d.error ? `<span class="result-failed">${escHtml(d.error)}</span>` : ''}</div>` + el.innerHTML;
             } catch {}
           }
         }
