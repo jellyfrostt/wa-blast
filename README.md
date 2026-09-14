@@ -1,6 +1,6 @@
 # WA Blast
 
-WhatsApp bulk messaging service built with [Baileys](https://github.com/WhiskeySockets/Baileys) and Express. Supports multi-session login, bulk/single message sending with auto-variation, chat viewing, read receipt tracking, and reconnection handling.
+WhatsApp bulk messaging service built with [Baileys](https://github.com/WhiskeySockets/Baileys) and Express. Supports multi-session login, bulk/single message sending, chat viewing, read receipt tracking, and reconnection handling.
 
 ## Tech Stack
 
@@ -104,7 +104,7 @@ Status updates come from Baileys `messages.update` event (status enum: 2=sent, 3
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/send` | Send single message `{phone, message, sessionId?}` |
-| POST | `/api/quick-send` | Send N varied messages `{phone, message, count, sessionId?}` |
+| POST | `/api/quick-send` | Send a message N times `{phone, message, count, sessionId?}` |
 | POST | `/api/blast` | Start bulk blast `{template, sessionId?, delayMin, delayMax}` |
 | GET | `/api/status` | Blast job status (polling) |
 | POST | `/api/cancel` | Cancel running blast |
@@ -129,7 +129,7 @@ All send endpoints accept optional `sessionId`. If omitted, uses the first conne
 5-tab interface:
 
 1. **Sessions** — add/remove WhatsApp connections, scan QR, pair code
-2. **Quick Send** — send varied messages to single number with session selector
+2. **Quick Send** — send messages to single number with session selector
 3. **Bulk Import** — upload contacts, compose template, blast with session selector
 4. **Chats** — view conversations per session, message bubbles with read status
 5. **History** — blast job history with delivery breakdown (sent/delivered/read/failed)
@@ -151,11 +151,8 @@ All send endpoints accept optional `sessionId`. If omitted, uses the first conne
 - **Error classification:** rate_limit, banned, invalid_number, timeout, connection, auth
 - **DB logging:** Every sent/failed message stored in SQLite for tracking
 
-### Anti-Detection (Quick Send)
-- Random greeting prefixes (Halo, Hai, Hi, Assalamualaikum, etc.)
-- Punctuation variation (periods, double periods)
-- Invisible character insertion (ZWSP, ZWNJ)
-- Random closing lines
+### Pacing (Quick Send)
+- Messages are sent exactly as typed, with no added greeting or variation
 - Configurable delay between messages (default 3-8s, +30-60s pause every 10 messages)
 
 ## Template Variables
