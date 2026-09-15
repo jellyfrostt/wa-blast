@@ -141,7 +141,7 @@ function saveLog(job, logger) {
   }
 }
 
-export async function startBlast(sessionId, contacts, template, delayMin, delayMax, logger) {
+export function startBlast(sessionId, contacts, template, delayMin, delayMax, logger) {
   if (currentJob?.status === "running") {
     throw new Error("Blast sedang berjalan");
   }
