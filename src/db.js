@@ -42,8 +42,8 @@ export default db;
 
 export const stmts = {
   insertSession: db.prepare("INSERT INTO sessions (id, name) VALUES (?, ?)"),
-  updateSessionStatus: db.prepare('UPDATE sessions SET status = ?, updated_at = datetime("now") WHERE id = ?'),
-  updateSessionPhone: db.prepare('UPDATE sessions SET phone = ?, status = \'connected\', updated_at = datetime("now") WHERE id = ?'),
+  updateSessionStatus: db.prepare("UPDATE sessions SET status = ?, updated_at = datetime('now') WHERE id = ?"),
+  updateSessionPhone: db.prepare("UPDATE sessions SET phone = ?, status = 'connected', updated_at = datetime('now') WHERE id = ?"),
   getSession: db.prepare("SELECT * FROM sessions WHERE id = ?"),
   getAllSessions: db.prepare("SELECT * FROM sessions ORDER BY created_at"),
   deleteSession: db.prepare("DELETE FROM sessions WHERE id = ?"),
@@ -52,7 +52,7 @@ export const stmts = {
     "INSERT INTO messages (session_id, jid, direction, content, message_id, status, blast_job_id, sender_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
   ),
   updateMessageStatus: db.prepare(
-    'UPDATE messages SET status = ?, updated_at = datetime("now") WHERE message_id = ? AND session_id = ?'
+    "UPDATE messages SET status = ?, updated_at = datetime('now') WHERE message_id = ? AND session_id = ?"
   ),
   getChats: db.prepare(`
     SELECT jid,
