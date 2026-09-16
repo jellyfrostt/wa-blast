@@ -54,14 +54,16 @@ data/
 ### Message Flow (Blast)
 
 1. Select sender session from dropdown
-2. Upload CSV/Excel via `/api/upload`
+2. Upload CSV/Excel via `/api/upload` -> returns an `uploadId` for that contact list
 3. Compose template with `{{column_name}}` variables (case-insensitive)
 4. Preview with `/api/preview`
-5. Start blast via `/api/blast` -> runs async in background
+5. Start blast via `/api/blast` with `sessionId` + `uploadId` -> runs async in background
 6. All sent messages logged to SQLite with delivery status tracking
 7. Read receipts tracked via Baileys `messages.update` events
 
 Each message: 20s send timeout -> up to 2 retries on connection/timeout errors -> wait for reconnect if socket dies (30s max).
+
+Each session runs at most one blast at a time, and different sessions can blast in parallel. Contact lists are kept per upload (in memory, 24h), so two people uploading at the same time do not overwrite each other.
 
 ### Message Tracking
 
@@ -105,9 +107,9 @@ Status updates come from Baileys `messages.update` event (status enum: 2=sent, 3
 |--------|------|-------------|
 | POST | `/api/send` | Send single message `{phone, message, sessionId?}` |
 | POST | `/api/quick-send` | Send a message N times `{phone, message, count, sessionId?}` |
-| POST | `/api/blast` | Start bulk blast `{template, sessionId?, delayMin, delayMax}` |
-| GET | `/api/status` | Blast job status (polling) |
-| POST | `/api/cancel` | Cancel running blast |
+| POST | `/api/blast` | Start bulk blast `{template, sessionId?, uploadId?, delayMin, delayMax}` |
+| GET | `/api/status` | Blast job status for a session (polling) `?sessionId=` |
+| POST | `/api/cancel` | Cancel a session's running blast `{sessionId?}` |
 | GET | `/api/history` | Past blast job history |
 
 ### System
@@ -116,13 +118,13 @@ Status updates come from Baileys `messages.update` event (status enum: 2=sent, 3
 |--------|------|-------------|
 | GET | `/health` | All sessions status + contact count |
 | GET | `/qr` | QR page (legacy, shows all pending QRs) |
-| POST | `/api/upload` | Upload CSV/Excel contacts |
-| POST | `/api/preview` | Preview template rendering |
+| POST | `/api/upload` | Upload CSV/Excel contacts, returns `uploadId` |
+| POST | `/api/preview` | Preview template rendering `{template, uploadId?}` |
 | POST | `/api/disconnect` | Disconnect session `{sessionId?}` |
 | GET | `/api/connection-log` | Connection event log `?sessionId=` |
-| POST | `/api/clear` | Clear uploaded contacts |
+| POST | `/api/clear` | Clear uploaded contacts `{uploadId?}` |
 
-All send endpoints accept optional `sessionId`. If omitted, uses the first connected session.
+All send endpoints accept optional `sessionId`. If omitted, uses the first connected session. If `uploadId` is omitted, the most recent upload is used; without `sessionId`, status and cancel apply to the most recently started blast.
 
 ## Frontend
 
