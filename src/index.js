@@ -18,8 +18,14 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 app.use(express.json());
 app.use(express.static(join(__dirname, "public")));
 
-let uploadedContacts = null;
-let uploadedColumns = null;
+const UPLOAD_TTL_MS = 24 * 60 * 60 * 1000;
+const uploads = new Map();
+let lastUploadId = null;
+
+// An explicit uploadId never falls back to someone else's upload.
+function getUpload(uploadId) {
+  return uploads.get(uploadId || lastUploadId) ?? null;
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
@@ -37,7 +43,7 @@ app.get("/health", (_req, res) => {
   res.status(connected.length > 0 ? 200 : 503).json({
     status: connected.length > 0 ? "connected" : "disconnected",
     sessions: sessions.map(s => ({ id: s.id, name: s.name, phone: s.phone ? `+${s.phone}` : null, connected: s.connected })),
-    contacts: uploadedContacts?.length ?? 0,
+    contacts: getUpload()?.rows.length ?? 0,
   });
 });
 
@@ -230,13 +236,22 @@ app.post("/api/upload", upload.single("file"), (req, res) => {
     return out;
   });
 
-  uploadedContacts = rows;
-  uploadedColumns = Object.keys(rows[0]);
+  const now = Date.now();
+  for (const [id, u] of uploads) {
+    if (now - u.createdAt > UPLOAD_TTL_MS) uploads.delete(id);
+  }
+  if (req.body?.replaces) uploads.delete(req.body.replaces);
 
-  logger.info({ count: rows.length, columns: uploadedColumns }, "Contacts uploaded");
+  const uploadId = `u_${now}_${Math.random().toString(36).slice(2, 8)}`;
+  const columns = Object.keys(rows[0]);
+  uploads.set(uploadId, { rows, columns, createdAt: now });
+  lastUploadId = uploadId;
+
+  logger.info({ uploadId, count: rows.length, columns }, "Contacts uploaded");
   res.json({
+    uploadId,
     count: rows.length,
-    columns: uploadedColumns,
+    columns,
     preview: rows.slice(0, 5),
   });
 });
@@ -244,12 +259,12 @@ app.post("/api/upload", upload.single("file"), (req, res) => {
 // ─── Preview message ──────────────────────────────────────────────────────
 
 app.post("/api/preview", (req, res) => {
-  if (!uploadedContacts?.length) return res.status(400).json({ error: "Upload kontak dulu" });
-
-  const { template } = req.body;
+  const { template, uploadId } = req.body;
+  const upload = getUpload(uploadId);
+  if (!upload) return res.status(400).json({ error: "Upload kontak dulu" });
   if (!template) return res.status(400).json({ error: "Template kosong" });
 
-  const previews = uploadedContacts.slice(0, 3).map((row) => {
+  const previews = upload.rows.slice(0, 3).map((row) => {
     const rendered = template.replace(/\{\{([^}]+)\}\}/g, (_, rawKey) => {
       const key = rawKey.trim();
       if (key in row) return row[key];
@@ -288,17 +303,17 @@ app.post("/api/send", async (req, res) => {
 // ─── Start blast ──────────────────────────────────────────────────────────
 
 app.post("/api/blast", (req, res) => {
-  if (!uploadedContacts?.length) return res.status(400).json({ error: "Upload kontak dulu" });
-
-  const { template, delayMin = 3, delayMax = 7, sessionId: reqSessionId } = req.body;
+  const { template, delayMin = 3, delayMax = 7, sessionId: reqSessionId, uploadId } = req.body;
+  const upload = getUpload(uploadId);
+  if (!upload) return res.status(400).json({ error: "Upload kontak dulu" });
   if (!template) return res.status(400).json({ error: "Template kosong" });
 
   const sessionId = reqSessionId || getDefaultSessionId();
   if (!sessionId) return res.status(503).json({ error: "Tidak ada session aktif" });
 
   try {
-    const job = startBlast(sessionId, uploadedContacts, template, delayMin, delayMax, logger);
-    res.json({ status: job.status, total: job.total });
+    const job = startBlast(sessionId, upload.rows, template, delayMin, delayMax, logger);
+    res.json({ id: job.id, sessionId, status: job.status, total: job.total });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -314,16 +329,16 @@ app.get("/api/blast/:jobId/stats", (req, res) => {
 
 // ─── Job status (polling) ─────────────────────────────────────────────────
 
-app.get("/api/status", (_req, res) => {
-  const job = getJobStatus();
+app.get("/api/status", (req, res) => {
+  const job = getJobStatus(req.query.sessionId);
   if (!job) return res.json({ status: "idle" });
   res.json(job);
 });
 
 // ─── Cancel blast ─────────────────────────────────────────────────────────
 
-app.post("/api/cancel", (_req, res) => {
-  cancelJob();
+app.post("/api/cancel", (req, res) => {
+  cancelJob(req.body?.sessionId);
   res.json({ ok: true });
 });
 
@@ -343,9 +358,10 @@ app.get("/api/connection-log", (req, res) => {
 
 // ─── Clear contacts ───────────────────────────────────────────────────────
 
-app.post("/api/clear", (_req, res) => {
-  uploadedContacts = null;
-  uploadedColumns = null;
+app.post("/api/clear", (req, res) => {
+  const id = req.body?.uploadId || lastUploadId;
+  uploads.delete(id);
+  if (id === lastUploadId) lastUploadId = null;
   res.json({ ok: true });
 });
 
