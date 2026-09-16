@@ -324,6 +324,8 @@
   <script>
     let columns = [];
     let contactCount = 0;
+    let uploadId = null;
+    let blastSessionId = null;
     let pollInterval = null;
     let sessionsCache = [];
     let sessionPollInterval = null;
@@ -566,6 +568,7 @@
       const file = input.files[0];
       if (!file) return;
       const form = new FormData();
+      if (uploadId) form.append("replaces", uploadId);
       form.append("file", file);
       const r = await fetch("/api/upload", { method: "POST", body: form });
       const d = await r.json();
@@ -573,6 +576,7 @@
         document.getElementById("uploadResult").innerHTML = `<p style="color:#ef4444;margin-top:8px">${escHtml(d.error)}</p>`;
         return;
       }
+      uploadId = d.uploadId;
       contactCount = d.count;
       columns = d.columns;
       document.getElementById("uploadArea").className = "upload-area has-file";
@@ -605,7 +609,7 @@
     async function previewMessages() {
       const template = document.getElementById("template").value;
       if (!template) return;
-      const r = await fetch("/api/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ template }) });
+      const r = await fetch("/api/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ template, uploadId }) });
       const d = await r.json();
       if (!r.ok) return;
       document.getElementById("step2").className = "step-num active";
@@ -630,10 +634,11 @@
       const r = await fetch("/api/blast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, template, delayMin, delayMax }),
+        body: JSON.stringify({ sessionId, uploadId, template, delayMin, delayMax }),
       });
       const d = await r.json();
       if (!r.ok) { alert(d.error); return; }
+      blastSessionId = sessionId;
       document.getElementById("blastBtn").style.display = "none";
       document.getElementById("cancelBtn").style.display = "inline-flex";
       document.getElementById("clearBtn").disabled = true;
@@ -644,7 +649,7 @@
     }
 
     async function pollStatus() {
-      const r = await fetch("/api/status");
+      const r = await fetch(`/api/status?sessionId=${encodeURIComponent(blastSessionId)}`);
       const d = await r.json();
       if (d.status === "idle") return;
       const pct = d.total > 0 ? Math.round((d.current / d.total) * 100) : 0;
@@ -666,10 +671,13 @@
       }
     }
 
-    async function cancelBlast() { await fetch("/api/cancel", { method: "POST" }); }
+    async function cancelBlast() {
+      await fetch("/api/cancel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId: blastSessionId }) });
+    }
 
     async function clearAll() {
-      await fetch("/api/clear", { method: "POST" });
+      if (uploadId) await fetch("/api/clear", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ uploadId }) });
+      uploadId = null;
       contactCount = 0; columns = [];
       document.getElementById("uploadArea").className = "upload-area";
       document.getElementById("uploadArea").innerHTML = '<p style="color:#666">Klik atau drag file CSV / Excel (.xlsx)</p><p style="color:#444;font-size:12px;margin-top:4px">Harus ada kolom phone/hp/wa/nomor</p>';
