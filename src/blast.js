@@ -58,21 +58,21 @@ export async function sendWithRetry(sessionId, jid, content, logger) {
   }
 }
 
-let currentJob = null;
+const jobs = new Map();
+let latestJob = null;
 let jobHistory = [];
 
-export function getJobStatus() {
-  return currentJob;
+export function getJobStatus(sessionId) {
+  return sessionId ? jobs.get(sessionId) ?? null : latestJob;
 }
 
 export function getJobHistory() {
   return jobHistory;
 }
 
-export function cancelJob() {
-  if (currentJob && currentJob.status === "running") {
-    currentJob.status = "cancelled";
-  }
+export function cancelJob(sessionId) {
+  const job = getJobStatus(sessionId);
+  if (job?.status === "running") job.status = "cancelled";
 }
 
 function resolveColumn(row, key) {
@@ -142,17 +142,17 @@ function saveLog(job, logger) {
 }
 
 export function startBlast(sessionId, contacts, template, delayMin, delayMax, logger) {
-  if (currentJob?.status === "running") {
-    throw new Error("Blast sedang berjalan");
+  if (jobs.get(sessionId)?.status === "running") {
+    throw new Error("Blast sedang berjalan di session ini");
   }
 
   if (!getConnectedSocket(sessionId)) {
     throw new Error("WhatsApp belum terhubung");
   }
 
-  const jobId = `blast-${Date.now()}`;
+  const jobId = `blast-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
-  currentJob = {
+  const job = {
     id: jobId,
     sessionId,
     status: "running",
@@ -171,6 +171,8 @@ export function startBlast(sessionId, contacts, template, delayMin, delayMax, lo
     maxConsecutiveErrors: 0,
     delayConfig: { min: delayMin, max: delayMax },
   };
+  jobs.set(sessionId, job);
+  latestJob = job;
 
   const startTime = Date.now();
 
@@ -180,17 +182,17 @@ export function startBlast(sessionId, contacts, template, delayMin, delayMax, lo
     let delayCount = 0;
 
     for (let i = 0; i < contacts.length; i++) {
-      if (currentJob.status === "cancelled") {
-        logger.info({ at: i, total: contacts.length, sent: currentJob.sent, failed: currentJob.failed }, "Blast cancelled by user");
+      if (job.status === "cancelled") {
+        logger.info({ at: i, total: contacts.length, sent: job.sent, failed: job.failed }, "Blast cancelled by user");
         break;
       }
 
       const row = contacts[i];
       const phoneCol = findPhoneColumn(row);
       if (!phoneCol) {
-        currentJob.results.push({ index: i, phone: "?", status: "skipped", error: "No phone column", ts: new Date().toISOString() });
-        currentJob.skipped++;
-        currentJob.current = i + 1;
+        job.results.push({ index: i, phone: "?", status: "skipped", error: "No phone column", ts: new Date().toISOString() });
+        job.skipped++;
+        job.current = i + 1;
         logger.warn({ index: i, columns: Object.keys(row) }, "Skipped - no phone column found");
         continue;
       }
@@ -198,9 +200,9 @@ export function startBlast(sessionId, contacts, template, delayMin, delayMax, lo
       const phone = row[phoneCol];
       const cleaned = String(phone).replace(/\D/g, "");
       if (!cleaned || cleaned.length < 9) {
-        currentJob.results.push({ index: i, phone: phone || "?", status: "skipped", error: "Nomor tidak valid", ts: new Date().toISOString() });
-        currentJob.skipped++;
-        currentJob.current = i + 1;
+        job.results.push({ index: i, phone: phone || "?", status: "skipped", error: "Nomor tidak valid", ts: new Date().toISOString() });
+        job.skipped++;
+        job.current = i + 1;
         logger.warn({ index: i, phone, columns: Object.keys(row) }, "Skipped - invalid/empty phone");
         continue;
       }
@@ -228,8 +230,8 @@ export function startBlast(sessionId, contacts, template, delayMin, delayMax, lo
 
           const result = await sendWithTimeout(activeSock, jid, { text: message });
           const sendMs = Date.now() - sendStart;
-          currentJob.results.push({ index: i, phone: display, status: "sent", sendMs, retries: attempt, ts: new Date().toISOString() });
-          currentJob.sent++;
+          job.results.push({ index: i, phone: display, status: "sent", sendMs, retries: attempt, ts: new Date().toISOString() });
+          job.sent++;
           consecutiveErrors = 0;
           logger.info({ index: i, phone: display, jid, sendMs, retries: attempt, messageId: result?.key?.id, progress: `${i + 1}/${contacts.length}` }, "Sent");
           sent = true;
@@ -247,12 +249,12 @@ export function startBlast(sessionId, contacts, template, delayMin, delayMax, lo
 
           if (lastErrorType === "banned") {
             logger.error("BANNED detected - stopping blast immediately");
-            currentJob.status = "banned";
+            job.status = "banned";
             break;
           }
 
           if (lastErrorType === "rate_limit") {
-            currentJob.rateLimitHits++;
+            job.rateLimitHits++;
             const cooldown = 30000 + Math.floor(Math.random() * 15000);
             logger.warn({ index: i, cooldownMs: cooldown }, "Rate limited - cooling down");
             await sleep(cooldown);
@@ -267,11 +269,11 @@ export function startBlast(sessionId, contacts, template, delayMin, delayMax, lo
         }
       }
 
-      if (currentJob.status === "banned") break;
+      if (job.status === "banned") break;
 
       if (!sent) {
         const sendMs = Date.now() - sendStart;
-        currentJob.results.push({
+        job.results.push({
           index: i,
           phone: display,
           status: "failed",
@@ -280,8 +282,8 @@ export function startBlast(sessionId, contacts, template, delayMin, delayMax, lo
           sendMs,
           ts: new Date().toISOString(),
         });
-        currentJob.failed++;
-        currentJob.errorBreakdown[lastErrorType] = (currentJob.errorBreakdown[lastErrorType] || 0) + 1;
+        job.failed++;
+        job.errorBreakdown[lastErrorType] = (job.errorBreakdown[lastErrorType] || 0) + 1;
         consecutiveErrors++;
 
         try {
@@ -290,15 +292,15 @@ export function startBlast(sessionId, contacts, template, delayMin, delayMax, lo
           logger.warn({ err: dbErr.message }, "Failed to log failed message to DB");
         }
 
-        if (consecutiveErrors > currentJob.maxConsecutiveErrors) {
-          currentJob.maxConsecutiveErrors = consecutiveErrors;
+        if (consecutiveErrors > job.maxConsecutiveErrors) {
+          job.maxConsecutiveErrors = consecutiveErrors;
         }
 
         logger.error({ index: i, phone: display, consecutiveErrors, progress: `${i + 1}/${contacts.length}` }, "Send failed after all retries");
 
         if (consecutiveErrors >= 10) {
           logger.error({ consecutiveErrors }, "10 consecutive errors - stopping blast");
-          currentJob.status = "error_stopped";
+          job.status = "error_stopped";
           break;
         }
 
@@ -308,55 +310,59 @@ export function startBlast(sessionId, contacts, template, delayMin, delayMax, lo
         }
       }
 
-      currentJob.current = i + 1;
-      currentJob.durationMs = Date.now() - startTime;
+      job.current = i + 1;
+      job.durationMs = Date.now() - startTime;
 
-      if (i < contacts.length - 1 && currentJob.status === "running") {
+      if (i < contacts.length - 1 && job.status === "running") {
         const delay = Math.floor(Math.random() * (delayMax - delayMin + 1)) + delayMin;
         totalDelay += delay;
         delayCount++;
-        currentJob.avgDelayMs = Math.round((totalDelay / delayCount) * 1000);
+        job.avgDelayMs = Math.round((totalDelay / delayCount) * 1000);
         await sleep(delay * 1000);
       }
     }
 
-    if (currentJob.status === "running") {
-      currentJob.status = "done";
+    if (job.status === "running") {
+      job.status = "done";
     }
-    currentJob.finishedAt = new Date().toISOString();
-    currentJob.durationMs = Date.now() - startTime;
+    job.finishedAt = new Date().toISOString();
+    job.durationMs = Date.now() - startTime;
 
     logger.info({
       id: jobId,
       sessionId,
-      status: currentJob.status,
-      total: currentJob.total,
-      sent: currentJob.sent,
-      failed: currentJob.failed,
-      skipped: currentJob.skipped,
-      durationMs: currentJob.durationMs,
-      errorBreakdown: currentJob.errorBreakdown,
-      rateLimitHits: currentJob.rateLimitHits,
-      maxConsecutiveErrors: currentJob.maxConsecutiveErrors,
+      status: job.status,
+      total: job.total,
+      sent: job.sent,
+      failed: job.failed,
+      skipped: job.skipped,
+      durationMs: job.durationMs,
+      errorBreakdown: job.errorBreakdown,
+      rateLimitHits: job.rateLimitHits,
+      maxConsecutiveErrors: job.maxConsecutiveErrors,
     }, "Blast finished");
 
-    saveLog(currentJob, logger);
+    saveLog(job, logger);
     jobHistory.unshift({
-      id: currentJob.id,
-      sessionId: currentJob.sessionId,
-      status: currentJob.status,
-      total: currentJob.total,
-      sent: currentJob.sent,
-      failed: currentJob.failed,
-      startedAt: currentJob.startedAt,
-      finishedAt: currentJob.finishedAt,
-      errorBreakdown: currentJob.errorBreakdown,
-      rateLimitHits: currentJob.rateLimitHits,
+      id: job.id,
+      sessionId: job.sessionId,
+      status: job.status,
+      total: job.total,
+      sent: job.sent,
+      failed: job.failed,
+      startedAt: job.startedAt,
+      finishedAt: job.finishedAt,
+      errorBreakdown: job.errorBreakdown,
+      rateLimitHits: job.rateLimitHits,
     });
     if (jobHistory.length > 50) jobHistory.pop();
-  })();
+  })().catch((err) => {
+    logger.error({ id: jobId, sessionId, err: err.message }, "Blast aborted by unexpected error");
+    if (job.status === "running") job.status = "error_stopped";
+    job.finishedAt = new Date().toISOString();
+  });
 
-  return currentJob;
+  return job;
 }
 
 function findPhoneColumn(row) {
