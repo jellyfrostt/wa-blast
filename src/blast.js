@@ -2,6 +2,7 @@ import { writeFileSync, mkdirSync, existsSync } from "fs";
 import { getSessionSocket } from "./sessions.js";
 import { stmts } from "./db.js";
 import { formatPhone, displayPhone } from "./phone.js";
+import { newJobId, recordJobStart, recordJobItem, recordJobFinish } from "./history.js";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -60,14 +61,9 @@ export async function sendWithRetry(sessionId, jid, content, logger) {
 
 const jobs = new Map();
 let latestJob = null;
-let jobHistory = [];
 
 export function getJobStatus(sessionId) {
   return sessionId ? jobs.get(sessionId) ?? null : latestJob;
-}
-
-export function getJobHistory() {
-  return jobHistory;
 }
 
 export function cancelJob(sessionId) {
@@ -150,7 +146,7 @@ export function startBlast(sessionId, contacts, template, delayMin, delayMax, lo
     throw new Error("WhatsApp belum terhubung");
   }
 
-  const jobId = `blast-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const jobId = newJobId("blast");
 
   const job = {
     id: jobId,
@@ -173,6 +169,13 @@ export function startBlast(sessionId, contacts, template, delayMin, delayMax, lo
   };
   jobs.set(sessionId, job);
   latestJob = job;
+  recordJobStart(logger, { id: jobId, type: "blast", sessionId, template, total: contacts.length });
+
+  const addResult = (entry, content, messageId) => {
+    job.results.push(entry);
+    const error = entry.errorType ? `${entry.error} (${entry.errorType})` : entry.error;
+    recordJobItem(logger, jobId, { ...entry, error, content, messageId });
+  };
 
   const startTime = Date.now();
 
@@ -190,7 +193,7 @@ export function startBlast(sessionId, contacts, template, delayMin, delayMax, lo
       const row = contacts[i];
       const phoneCol = findPhoneColumn(row);
       if (!phoneCol) {
-        job.results.push({ index: i, phone: "?", status: "skipped", error: "No phone column", ts: new Date().toISOString() });
+        addResult({ index: i, phone: "?", status: "skipped", error: "No phone column", ts: new Date().toISOString() });
         job.skipped++;
         job.current = i + 1;
         logger.warn({ index: i, columns: Object.keys(row) }, "Skipped - no phone column found");
@@ -200,7 +203,7 @@ export function startBlast(sessionId, contacts, template, delayMin, delayMax, lo
       const phone = row[phoneCol];
       const cleaned = String(phone).replace(/\D/g, "");
       if (!cleaned || cleaned.length < 9) {
-        job.results.push({ index: i, phone: phone || "?", status: "skipped", error: "Nomor tidak valid", ts: new Date().toISOString() });
+        addResult({ index: i, phone: phone || "?", status: "skipped", error: "Nomor tidak valid", ts: new Date().toISOString() });
         job.skipped++;
         job.current = i + 1;
         logger.warn({ index: i, phone, columns: Object.keys(row) }, "Skipped - invalid/empty phone");
@@ -230,7 +233,7 @@ export function startBlast(sessionId, contacts, template, delayMin, delayMax, lo
 
           const result = await sendWithTimeout(activeSock, jid, { text: message });
           const sendMs = Date.now() - sendStart;
-          job.results.push({ index: i, phone: display, status: "sent", sendMs, retries: attempt, ts: new Date().toISOString() });
+          addResult({ index: i, phone: display, status: "sent", sendMs, retries: attempt, ts: new Date().toISOString() }, message, result?.key?.id);
           job.sent++;
           consecutiveErrors = 0;
           logger.info({ index: i, phone: display, jid, sendMs, retries: attempt, messageId: result?.key?.id, progress: `${i + 1}/${contacts.length}` }, "Sent");
@@ -273,7 +276,7 @@ export function startBlast(sessionId, contacts, template, delayMin, delayMax, lo
 
       if (!sent) {
         const sendMs = Date.now() - sendStart;
-        job.results.push({
+        addResult({
           index: i,
           phone: display,
           status: "failed",
@@ -281,7 +284,7 @@ export function startBlast(sessionId, contacts, template, delayMin, delayMax, lo
           errorType: lastErrorType,
           sendMs,
           ts: new Date().toISOString(),
-        });
+        }, message);
         job.failed++;
         job.errorBreakdown[lastErrorType] = (job.errorBreakdown[lastErrorType] || 0) + 1;
         consecutiveErrors++;
@@ -343,23 +346,12 @@ export function startBlast(sessionId, contacts, template, delayMin, delayMax, lo
     }, "Blast finished");
 
     saveLog(job, logger);
-    jobHistory.unshift({
-      id: job.id,
-      sessionId: job.sessionId,
-      status: job.status,
-      total: job.total,
-      sent: job.sent,
-      failed: job.failed,
-      startedAt: job.startedAt,
-      finishedAt: job.finishedAt,
-      errorBreakdown: job.errorBreakdown,
-      rateLimitHits: job.rateLimitHits,
-    });
-    if (jobHistory.length > 50) jobHistory.pop();
+    recordJobFinish(logger, jobId, job.status);
   })().catch((err) => {
     logger.error({ id: jobId, sessionId, err: err.message }, "Blast aborted by unexpected error");
     if (job.status === "running") job.status = "error_stopped";
     job.finishedAt = new Date().toISOString();
+    recordJobFinish(logger, jobId, job.status);
   });
 
   return job;

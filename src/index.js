@@ -7,7 +7,8 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { restoreSessions, getAllSessionsList, getSession, getSessionSocket, getSessionQr, getSessionConnectionLog, createSession, removeSession, requestSessionPairingCode } from "./sessions.js";
 import { stmts } from "./db.js";
-import { startBlast, getJobStatus, getJobHistory, cancelJob, sendWithRetry } from "./blast.js";
+import { startBlast, getJobStatus, cancelJob, sendWithRetry } from "./blast.js";
+import { newJobId, recordJobStart, recordJobItem, recordJobFinish } from "./history.js";
 import { formatPhone, displayPhone } from "./phone.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -176,6 +177,9 @@ app.post("/api/quick-send", async (req, res) => {
 
   let sent = 0, failed = 0;
 
+  const jobId = newJobId("quick");
+  recordJobStart(logger, { id: jobId, type: "quick", sessionId, template: message, total: Number(count) });
+
   for (let i = 0; i < count; i++) {
     if (i > 0) {
       const delay = i % 10 === 0 ? randInt(30, 60) : randInt(delayMin, delayMax);
@@ -186,15 +190,18 @@ app.post("/api/quick-send", async (req, res) => {
       const result = await sendWithRetry(sessionId, jid, { text: message }, logger);
       sent++;
       try { stmts.insertMessage.run(sessionId, jid, "outgoing", message, result?.key?.id || null, "sent", null, null); } catch {}
+      recordJobItem(logger, jobId, { index: i, phone: display, content: message, status: "sent", messageId: result?.key?.id });
       res.write(JSON.stringify({ index: i, phone: display, status: "sent", messageId: result?.key?.id }) + "\n");
       logger.info({ index: i, phone: display, jid, messageId: result?.key?.id }, `Quick send ${i + 1}/${count}`);
     } catch (err) {
       failed++;
+      recordJobItem(logger, jobId, { index: i, phone: display, content: message, status: "failed", error: err.message });
       res.write(JSON.stringify({ index: i, phone: display, status: "failed", error: err.message }) + "\n");
       logger.error({ index: i, phone: display, err: err.message }, "Quick send failed");
     }
   }
 
+  recordJobFinish(logger, jobId, "done");
   res.write(JSON.stringify({ done: true, total: count, sent, failed }) + "\n");
   res.end();
 });
@@ -344,8 +351,18 @@ app.post("/api/cancel", (req, res) => {
 
 // ─── Job history ──────────────────────────────────────────────────────────
 
-app.get("/api/history", (_req, res) => {
-  res.json(getJobHistory());
+app.get("/api/history", (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+  const offset = parseInt(req.query.offset) || 0;
+  res.json(stmts.getJobs.all(limit, offset));
+});
+
+app.get("/api/history/:id", (req, res) => {
+  const job = stmts.getJob.get(req.params.id);
+  if (!job) return res.status(404).json({ error: "History tidak ditemukan" });
+  const limit = Math.min(parseInt(req.query.limit) || 200, 1000);
+  const offset = parseInt(req.query.offset) || 0;
+  res.json({ job, items: stmts.getJobItems.all(job.session_id, job.id, limit, offset) });
 });
 
 // ─── Connection log ───────────────────────────────────────────────────────
