@@ -127,14 +127,30 @@
 
     /* History */
     .history-card { background: #171717; border: 1px solid #262626; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
-    .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .history-status { font-size: 12px; padding: 3px 8px; border-radius: 4px; font-weight: 500; }
+    .history-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer; }
+    .history-type { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: #262626; color: #a3a3a3; margin-right: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .history-sender { font-size: 14px; font-weight: 600; }
+    .history-sender small { color: #22c55e; font-weight: 500; font-size: 12px; margin-left: 6px; }
+    .history-status { font-size: 12px; padding: 3px 8px; border-radius: 4px; font-weight: 500; flex-shrink: 0; }
     .history-status.done { background: #1a2e1a; color: #22c55e; }
-    .history-status.cancelled { background: #2a2a1a; color: #eab308; }
+    .history-status.running { background: #1a2433; color: #3b82f6; }
+    .history-status.cancelled, .history-status.interrupted { background: #2a2a1a; color: #eab308; }
     .history-status.error_stopped, .history-status.banned { background: #2a1a1a; color: #ef4444; }
     .history-stats { display: flex; gap: 16px; font-size: 13px; color: #a3a3a3; margin-top: 8px; }
     .history-stats span { display: flex; align-items: center; gap: 4px; }
-    .history-time { font-size: 12px; color: #666; margin-top: 4px; }
+    .history-time { font-size: 12px; color: #888; margin-top: 4px; }
+    .history-toggle { margin-top: 10px; font-size: 12px; color: #888; cursor: pointer; user-select: none; }
+    .history-toggle:hover { color: #e5e5e5; }
+    .history-detail { margin-top: 12px; }
+    .history-items { max-height: 320px; overflow-y: auto; font-size: 13px; border: 1px solid #262626; border-radius: 8px; padding: 4px 12px; background: #0a0a0a; }
+    .history-item { padding: 6px 0; border-bottom: 1px solid #1a1a1a; }
+    .history-item:last-child { border-bottom: none; }
+    .history-item-row { display: flex; gap: 12px; align-items: baseline; }
+    .history-item-time { color: #666; font-size: 12px; min-width: 64px; flex-shrink: 0; }
+    .history-item-phone { flex: 1; min-width: 0; }
+    .history-item-msg { color: #666; font-size: 12px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .result-delivered { color: #3b82f6; }
+    .result-read { color: #8b5cf6; }
     .delivery-bar { display: flex; height: 4px; border-radius: 2px; overflow: hidden; margin-top: 8px; background: #262626; }
     .delivery-bar .sent { background: #22c55e; }
     .delivery-bar .delivered { background: #3b82f6; }
@@ -315,6 +331,9 @@
     <!-- TAB: History -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <div class="tab-content" id="tab-history">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+        <button class="btn btn-ghost btn-sm" onclick="loadHistory()">Refresh</button>
+      </div>
       <div id="historyList">
         <div class="empty-state">Loading...</div>
       </div>
@@ -831,53 +850,163 @@
     }
 
     // ─── History ───
+    const HISTORY_PAGE = 200;
+    const expandedHistory = new Set();
+
+    function parseTs(ts) {
+      if (!ts) return null;
+      const d = new Date(ts.endsWith('Z') ? ts : ts + 'Z');
+      return isNaN(d) ? null : d;
+    }
+
+    function formatDateTime(ts) {
+      const d = parseTs(ts);
+      if (!d) return ts || '';
+      return d.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    function formatClock(ts) {
+      const d = parseTs(ts);
+      if (!d) return ts || '';
+      return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    function formatDuration(start, end) {
+      const a = parseTs(start), b = parseTs(end);
+      if (!a || !b || b < a) return '';
+      const s = Math.round((b - a) / 1000);
+      if (s < 60) return `${s} dtk`;
+      const m = Math.floor(s / 60);
+      if (m < 60) return `${m} mnt ${s % 60} dtk`;
+      return `${Math.floor(m / 60)} jam ${m % 60} mnt`;
+    }
+
+    function renderHistoryCard(j) {
+      const total = j.total || 0;
+      const pct = n => total > 0 ? ((n || 0) / total * 100) : 0;
+      const sentPct = pct(j.sent), failedPct = pct(j.failed), deliveredPct = pct(j.delivered), readPct = pct(j.read_count);
+      const start = parseTs(j.started_at), end = parseTs(j.finished_at);
+      const sameDay = start && end && start.toDateString() === end.toDateString();
+      const duration = formatDuration(j.started_at, j.finished_at);
+      const endText = j.finished_at ? ` - ${sameDay ? formatClock(j.finished_at) : formatDateTime(j.finished_at)}` : '';
+      return `<div class="history-card" data-id="${escHtml(j.id)}">
+        <div class="history-header" onclick="toggleHistory(this.parentElement)">
+          <div>
+            <span class="history-type">${j.type === 'quick' ? 'Quick Send' : 'Blast'}</span>
+            <span class="history-sender">${escHtml(j.session_name || j.session_id)}${j.session_phone ? `<small>+${escHtml(j.session_phone)}</small>` : ''}</span>
+          </div>
+          <span class="history-status ${escHtml(j.status)}">${escHtml(j.status)}</span>
+        </div>
+        <div class="history-time">${escHtml(formatDateTime(j.started_at))}${escHtml(endText)}${duration ? ` (${duration})` : ''}</div>
+        <div class="history-stats">
+          <span>Total: ${total}</span>
+          <span style="color:#22c55e">Sent: ${j.sent || 0}</span>
+          <span style="color:#ef4444">Failed: ${j.failed || 0}</span>
+          ${j.skipped ? `<span style="color:#eab308">Skipped: ${j.skipped}</span>` : ''}
+          ${j.delivered ? `<span style="color:#3b82f6">Delivered: ${j.delivered}</span>` : ''}
+          ${j.read_count ? `<span style="color:#8b5cf6">Read: ${j.read_count}</span>` : ''}
+        </div>
+        <div class="delivery-bar">
+          <div class="read-seg" style="width:${readPct}%"></div>
+          <div class="delivered" style="width:${deliveredPct}%"></div>
+          <div class="sent" style="width:${Math.max(0, sentPct - deliveredPct - readPct)}%"></div>
+          <div class="failed" style="width:${failedPct}%"></div>
+        </div>
+        <div class="delivery-legend">
+          <span class="l-sent">Sent</span>
+          <span class="l-delivered">Delivered</span>
+          <span class="l-read">Read</span>
+          <span class="l-failed">Failed</span>
+        </div>
+        <div class="history-toggle" onclick="toggleHistory(this.parentElement)">▸ Detail</div>
+        <div class="history-detail" style="display:none"></div>
+      </div>`;
+    }
+
+    function renderHistoryItem(i, type) {
+      const status = i.status === 'sent' && ['delivered', 'read'].includes(i.delivery_status) ? i.delivery_status : i.status;
+      return `<div class="history-item">
+        <div class="history-item-row">
+          <span class="history-item-time" title="${escHtml(formatDateTime(i.created_at))}">${escHtml(formatClock(i.created_at))}</span>
+          <span class="history-item-phone">${escHtml(i.phone || '?')}</span>
+          <span class="result-${escHtml(status)}">${escHtml(status)}${i.error ? ' - ' + escHtml(i.error) : ''}</span>
+        </div>
+        ${type === 'blast' && i.content ? `<div class="history-item-msg" title="${escHtml(i.content)}">${escHtml(i.content)}</div>` : ''}
+      </div>`;
+    }
+
     async function loadHistory() {
       const el = document.getElementById("historyList");
       try {
-        const r = await fetch("/api/history");
+        const r = await fetch("/api/history?limit=50");
         const jobs = await r.json();
+        if (!r.ok) throw new Error(jobs.error || "Gagal memuat history");
         if (!jobs.length) {
-          el.innerHTML = '<div class="empty-state">Belum ada blast history</div>';
+          el.innerHTML = '<div class="empty-state">Belum ada history pengiriman</div>';
           return;
         }
-        el.innerHTML = jobs.map(j => {
-          const total = j.total || 0;
-          const sentPct = total > 0 ? ((j.sent || 0) / total * 100) : 0;
-          const failedPct = total > 0 ? ((j.failed || 0) / total * 100) : 0;
-          const deliveredPct = total > 0 ? ((j.delivered || 0) / total * 100) : 0;
-          const readPct = total > 0 ? ((j.read_count || 0) / total * 100) : 0;
-          return `<div class="history-card">
-            <div class="history-header">
-              <span style="font-size:13px;color:#888">${escHtml(j.id)}</span>
-              <span class="history-status ${j.status}">${j.status}</span>
-            </div>
-            <div class="history-stats">
-              <span>Total: ${total}</span>
-              <span style="color:#22c55e">Sent: ${j.sent || 0}</span>
-              <span style="color:#ef4444">Failed: ${j.failed || 0}</span>
-              ${j.delivered ? `<span style="color:#3b82f6">Delivered: ${j.delivered}</span>` : ''}
-              ${j.read_count ? `<span style="color:#8b5cf6">Read: ${j.read_count}</span>` : ''}
-            </div>
-            <div class="delivery-bar">
-              <div class="read-seg" style="width:${readPct}%"></div>
-              <div class="delivered" style="width:${deliveredPct}%"></div>
-              <div class="sent" style="width:${Math.max(0, sentPct - deliveredPct - readPct)}%"></div>
-              <div class="failed" style="width:${failedPct}%"></div>
-            </div>
-            <div class="delivery-legend">
-              <span class="l-sent">Sent</span>
-              <span class="l-delivered">Delivered</span>
-              <span class="l-read">Read</span>
-              <span class="l-failed">Failed</span>
-            </div>
-            <div class="history-time">
-              ${j.startedAt ? formatTime(j.startedAt) : ''} ${j.finishedAt ? '- ' + formatTime(j.finishedAt) : ''}
-            </div>
-          </div>`;
-        }).join("");
+        el.innerHTML = jobs.map(renderHistoryCard).join("");
+        for (const id of [...expandedHistory]) {
+          const card = el.querySelector(`.history-card[data-id="${CSS.escape(id)}"]`);
+          if (card) openHistoryDetail(card);
+          else expandedHistory.delete(id);
+        }
       } catch (err) {
         el.innerHTML = `<div class="empty-state" style="color:#ef4444">${escHtml(err.message)}</div>`;
       }
+    }
+
+    function toggleHistory(card) {
+      const id = card.dataset.id;
+      if (!expandedHistory.has(id)) {
+        expandedHistory.add(id);
+        return openHistoryDetail(card);
+      }
+      expandedHistory.delete(id);
+      const detail = card.querySelector('.history-detail');
+      detail.style.display = 'none';
+      detail.innerHTML = '';
+      card.querySelector('.history-toggle').textContent = '▸ Detail';
+    }
+
+    async function openHistoryDetail(card) {
+      const detail = card.querySelector('.history-detail');
+      card.querySelector('.history-toggle').textContent = '▾ Detail';
+      detail.style.display = 'block';
+      detail.innerHTML = '<div style="color:#666;font-size:13px">Loading...</div>';
+      try {
+        const r = await fetch(`/api/history/${encodeURIComponent(card.dataset.id)}?limit=${HISTORY_PAGE}`);
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || "Gagal memuat detail");
+        const items = d.items.map(i => renderHistoryItem(i, d.job.type)).join("");
+        detail.innerHTML = `
+          <div class="preview-label">${d.job.type === 'blast' ? 'Template' : 'Pesan'}</div>
+          <div class="preview-box" style="margin-top:0">${escHtml(d.job.template || '')}</div>
+          <div class="preview-label" style="margin-top:12px">Dikirim ke (${d.job.total})</div>
+          <div class="history-items" data-type="${escHtml(d.job.type)}">${items || '<div style="padding:8px 0;color:#666">Belum ada penerima</div>'}</div>
+          ${d.items.length >= HISTORY_PAGE ? `<div class="load-more-btn"><button class="btn btn-ghost btn-sm" data-offset="${HISTORY_PAGE}" onclick="loadMoreHistoryItems(this)">Load more</button></div>` : ''}`;
+      } catch (err) {
+        detail.innerHTML = `<div style="color:#ef4444;font-size:13px">${escHtml(err.message)}</div>`;
+      }
+    }
+
+    async function loadMoreHistoryItems(btn) {
+      const card = btn.closest('.history-card');
+      const list = card.querySelector('.history-items');
+      const offset = Number(btn.dataset.offset);
+      btn.disabled = true;
+      try {
+        const r = await fetch(`/api/history/${encodeURIComponent(card.dataset.id)}?limit=${HISTORY_PAGE}&offset=${offset}`);
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || "Gagal memuat detail");
+        list.insertAdjacentHTML('beforeend', d.items.map(i => renderHistoryItem(i, list.dataset.type)).join(""));
+        if (d.items.length >= HISTORY_PAGE) {
+          btn.dataset.offset = offset + HISTORY_PAGE;
+          btn.disabled = false;
+        } else {
+          btn.parentElement.remove();
+        }
+      } catch { btn.disabled = false; }
     }
 
     // ─── Init ───
