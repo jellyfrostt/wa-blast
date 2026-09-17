@@ -36,7 +36,41 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_msg_session_jid ON messages(session_id, jid);
   CREATE INDEX IF NOT EXISTS idx_msg_message_id ON messages(message_id);
   CREATE INDEX IF NOT EXISTS idx_msg_blast_job ON messages(blast_job_id);
+
+  CREATE TABLE IF NOT EXISTS send_jobs (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    session_name TEXT,
+    session_phone TEXT,
+    template TEXT,
+    status TEXT NOT NULL DEFAULT 'running',
+    total INTEGER NOT NULL DEFAULT 0,
+    started_at TEXT NOT NULL,
+    finished_at TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS send_job_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id TEXT NOT NULL,
+    idx INTEGER NOT NULL,
+    phone TEXT,
+    content TEXT,
+    status TEXT NOT NULL,
+    error TEXT,
+    message_id TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (job_id) REFERENCES send_jobs(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_job_started ON send_jobs(started_at);
+  CREATE INDEX IF NOT EXISTS idx_job_items_job ON send_job_items(job_id, idx);
 `);
+
+// Nothing can be running at process start, so leftovers are jobs cut off by a restart.
+db.prepare(
+  "UPDATE send_jobs SET status = 'interrupted', finished_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE status = 'running'"
+).run();
 
 export default db;
 
@@ -79,5 +113,32 @@ export const stmts = {
       SUM(CASE WHEN status = 'read' THEN 1 ELSE 0 END) as read_count,
       SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed
     FROM messages WHERE blast_job_id = ? GROUP BY blast_job_id
+  `),
+
+  insertJob: db.prepare(
+    "INSERT INTO send_jobs (id, type, session_id, session_name, session_phone, template, total, started_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  ),
+  insertJobItem: db.prepare(
+    "INSERT INTO send_job_items (job_id, idx, phone, content, status, error, message_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  ),
+  finishJob: db.prepare("UPDATE send_jobs SET status = ?, finished_at = ? WHERE id = ?"),
+  getJob: db.prepare("SELECT * FROM send_jobs WHERE id = ?"),
+  getJobs: db.prepare(`
+    SELECT j.*,
+      COALESCE(SUM(i.status = 'sent'), 0) AS sent,
+      COALESCE(SUM(i.status = 'failed'), 0) AS failed,
+      COALESCE(SUM(i.status = 'skipped'), 0) AS skipped,
+      COALESCE(SUM(m.status = 'delivered'), 0) AS delivered,
+      COALESCE(SUM(m.status = 'read'), 0) AS read_count
+    FROM (SELECT * FROM send_jobs ORDER BY started_at DESC LIMIT ? OFFSET ?) j
+    LEFT JOIN send_job_items i ON i.job_id = j.id
+    LEFT JOIN messages m ON m.message_id = i.message_id AND m.session_id = j.session_id
+    GROUP BY j.id ORDER BY j.started_at DESC
+  `),
+  getJobItems: db.prepare(`
+    SELECT i.idx, i.phone, i.content, i.status, i.error, i.created_at, m.status AS delivery_status
+    FROM send_job_items i
+    LEFT JOIN messages m ON m.message_id = i.message_id AND m.session_id = ?
+    WHERE i.job_id = ? ORDER BY i.idx LIMIT ? OFFSET ?
   `),
 };
