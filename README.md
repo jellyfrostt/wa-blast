@@ -19,6 +19,7 @@ src/
   db.js           SQLite database setup + prepared statements
   sessions.js     Multi-session WhatsApp manager (replaces wa-client.js)
   blast.js        Bulk send engine (session-aware, DB logging)
+  history.js      Send history recorder (jobs + per-recipient items)
   phone.js        Phone number formatting (ID format)
   public/
     index.html    Single-page frontend (5 tabs, vanilla JS)
@@ -110,7 +111,8 @@ Status updates come from Baileys `messages.update` event (status enum: 2=sent, 3
 | POST | `/api/blast` | Start bulk blast `{template, sessionId?, uploadId?, delayMin, delayMax}` |
 | GET | `/api/status` | Blast job status for a session (polling) `?sessionId=` |
 | POST | `/api/cancel` | Cancel a session's running blast `{sessionId?}` |
-| GET | `/api/history` | Past blast job history |
+| GET | `/api/history` | Send history (blasts + quick sends), newest first `?limit=50&offset=0` |
+| GET | `/api/history/:id` | One history job with its recipients `?limit=200&offset=0` |
 
 ### System
 
@@ -134,7 +136,7 @@ All send endpoints accept optional `sessionId`. If omitted, uses the first conne
 2. **Quick Send** — send messages to single number with session selector
 3. **Bulk Import** — upload contacts, compose template, blast with session selector
 4. **Chats** — view conversations per session, message bubbles with read status
-5. **History** — blast job history with delivery breakdown (sent/delivered/read/failed)
+5. **History** — every blast and quick send with sender session, start/finish time and delivery breakdown; expand a card to see the message and each recipient's status and time
 
 ## Reliability Features
 
@@ -212,11 +214,16 @@ Add a volume for `/app/data` to persist the SQLite database between deployments.
 ### SQLite Database (`./data/wa-blast.db`)
 - **sessions** — id, name, phone, status, timestamps
 - **messages** — session_id, jid, direction, content, message_id, status, blast_job_id, sender_name, timestamps
+- **send_jobs** — id, type (blast/quick), session_id, session_name, session_phone, template, status, total, started_at, finished_at
+- **send_job_items** — job_id, idx, phone, content, status, error, message_id, created_at
+
+History keeps its own copy of the sender name/phone and recipients, so it survives removing a session. A job still marked `running` when the server starts is set to `interrupted`.
 
 ### JSON Logs (`./logs/`)
 - Blast results saved as `blast-{timestamp}.json` (legacy, kept for backup)
 - Contains job metadata, per-message results, error breakdown
 
 ### In-Memory
-- Job history (last 50 jobs) available via `/api/history`
+- Uploaded contact lists (per upload, 24h)
+- Live progress of each session's current blast
 - Connection logs per session (last 200 events)
