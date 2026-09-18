@@ -4,1024 +4,1566 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>WA Blast</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Fira+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --c-primary: #2563EB; --c-primary-hover: #1D4ED8; --c-primary-soft: #EFF4FF;
+      --c-accent: #047857; --c-accent-hover: #065F46; --c-accent-soft: #D1FAE5;
+      --c-bg: #F8FAFC; --c-card: #FFFFFF; --c-fg: #0F172A;
+      --c-muted: #F1F5F9; --c-muted-fg: #475569; --c-faint: #64748B; --c-border: #E2E8F0;
+      --c-danger: #DC2626; --c-danger-hover: #B91C1C; --c-danger-soft: #FEE2E2;
+      --c-warn: #92400E; --c-warn-soft: #FEF3C7; --c-info: #1D4ED8; --c-info-soft: #DBEAFE;
+      --c-read: #6D28D9; --c-read-soft: #EDE9FE;
+      --radius: 10px;
+      --font: 'Fira Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --mono: 'Fira Code', ui-monospace, Consolas, monospace;
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #e5e5e5; min-height: 100vh; }
-    .container { max-width: 800px; margin: 0 auto; padding: 24px; }
-    h1 { font-size: 24px; margin-bottom: 4px; }
-    .subtitle { color: #888; font-size: 14px; margin-bottom: 24px; }
+    [hidden] { display: none !important; }
+    html { scroll-padding-top: 16px; }
+    body { font-family: var(--font); font-size: 16px; line-height: 1.5; color: var(--c-fg); background: var(--c-bg); }
+    button, input, select, textarea { font: inherit; color: inherit; }
+    :focus-visible { outline: 3px solid var(--c-primary); outline-offset: 2px; border-radius: 6px; }
+    [tabindex="-1"]:focus { outline: none; }
+    a { color: var(--c-primary); }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .mono { font-family: var(--mono); font-size: 0.92em; }
+    .num { font-variant-numeric: tabular-nums; }
 
-    /* Status bar */
-    .status-bar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: #171717; border-radius: 8px; margin-bottom: 16px; font-size: 14px; flex-wrap: wrap; }
-    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-    .dot.green { background: #22c55e; }
-    .dot.red { background: #ef4444; }
-    .dot.yellow { background: #eab308; }
-    .sender-info { color: #22c55e; font-weight: 600; font-size: 13px; }
+    /* Layout */
+    .app { display: flex; min-height: 100vh; }
+    .sidebar { width: 264px; flex-shrink: 0; background: var(--c-card); border-right: 1px solid var(--c-border); padding: 20px 12px; display: flex; flex-direction: column; gap: 20px; position: sticky; top: 0; height: 100vh; }
+    .brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; }
+    .brand-mark { width: 40px; height: 40px; border-radius: 10px; background: var(--c-accent); color: #fff; display: grid; place-items: center; flex-shrink: 0; }
+    .brand-mark svg { width: 22px; height: 22px; }
+    .brand-name { font-weight: 700; font-size: 18px; line-height: 1.2; }
+    .brand-sub { color: var(--c-faint); font-size: 13px; }
+    .nav { display: flex; flex-direction: column; gap: 4px; }
+    .nav-item { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 8px 12px; border: 0; border-radius: 8px; background: none; font-weight: 500; color: var(--c-muted-fg); cursor: pointer; text-align: left; width: 100%; transition: background-color 0.15s ease, color 0.15s ease; }
+    .nav-item svg { width: 20px; height: 20px; flex-shrink: 0; }
+    .nav-item:hover { background: var(--c-muted); color: var(--c-fg); }
+    .nav-item.active { background: var(--c-primary-soft); color: var(--c-primary); font-weight: 600; }
+    .nav-count { margin-left: auto; font-size: 12px; font-weight: 600; background: var(--c-muted); color: var(--c-muted-fg); border-radius: 999px; padding: 1px 8px; }
+    .nav-item.active .nav-count { background: #fff; color: var(--c-primary); }
+    .sidebar-foot { margin-top: auto; padding: 12px; border: 1px solid var(--c-border); border-radius: 8px; font-size: 14px; color: var(--c-muted-fg); display: flex; gap: 10px; align-items: center; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: var(--c-faint); }
+    .dot.ok { background: #059669; } .dot.warn { background: #D97706; } .dot.down { background: var(--c-danger); }
+    .main { flex: 1; min-width: 0; padding: 32px; }
+    .main-inner { max-width: 920px; margin: 0 auto; }
+    .page { display: none; }
+    .page.active { display: block; }
+    .page-head { margin-bottom: 24px; }
+    .page-head h1 { font-size: 26px; line-height: 1.25; font-weight: 700; }
+    .page-head p { color: var(--c-muted-fg); margin-top: 4px; max-width: 65ch; }
 
-    /* Tabs */
-    .tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
-    .tab { flex: 1; padding: 10px 12px; background: #171717; border: 1px solid #262626; border-radius: 8px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 500; color: #888; transition: all 0.15s; min-width: 0; white-space: nowrap; }
-    .tab.active { background: #1a2e1a; border-color: #22c55e; color: #22c55e; }
-    .tab:hover:not(.active) { border-color: #444; color: #bbb; }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
+    /* Building blocks */
+    .card { background: var(--c-card); border: 1px solid var(--c-border); border-radius: var(--radius); padding: 24px; margin-bottom: 16px; }
+    .card h2 { font-size: 20px; font-weight: 600; line-height: 1.3; }
+    .card .lead { color: var(--c-muted-fg); margin-top: 4px; margin-bottom: 20px; max-width: 65ch; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 18px; border: 1px solid transparent; border-radius: 8px; font-weight: 600; cursor: pointer; text-decoration: none; transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
+    .btn svg { width: 18px; height: 18px; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: var(--c-primary); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--c-primary-hover); }
+    .btn-accent { background: var(--c-accent); color: #fff; }
+    .btn-accent:hover:not(:disabled) { background: var(--c-accent-hover); }
+    .btn-outline { background: var(--c-card); border-color: var(--c-border); color: var(--c-fg); }
+    .btn-outline:hover:not(:disabled) { background: var(--c-muted); }
+    .btn-danger { background: var(--c-danger); color: #fff; }
+    .btn-danger:hover:not(:disabled) { background: var(--c-danger-hover); }
+    .btn-danger-outline { background: var(--c-card); border-color: #FCA5A5; color: var(--c-danger-hover); }
+    .btn-danger-outline:hover:not(:disabled) { background: var(--c-danger-soft); }
+    .btn-link { background: none; border: 0; color: var(--c-primary); font-weight: 600; cursor: pointer; padding: 4px 0; min-height: 32px; text-decoration: underline; }
+    .btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .field { margin-bottom: 16px; }
+    .field label, .label { display: block; font-weight: 600; margin-bottom: 6px; }
+    .field .hint, .hint { color: var(--c-muted-fg); font-size: 14px; margin-top: 6px; }
+    input[type="text"], input[type="number"], input[type="search"], select, textarea { width: 100%; min-height: 44px; background: #fff; border: 1px solid #CBD5E1; border-radius: 8px; padding: 10px 12px; }
+    textarea { min-height: 150px; resize: vertical; }
+    input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--c-primary); outline-offset: 0; border-color: var(--c-primary); }
+    .inline-fields { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .inline-fields input[type="number"] { width: 84px; text-align: center; }
+    .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 2px 10px; border-radius: 999px; background: var(--c-muted); color: var(--c-muted-fg); white-space: nowrap; }
+    .badge svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .badge-success { background: var(--c-accent-soft); color: var(--c-accent-hover); }
+    .badge-info { background: var(--c-info-soft); color: var(--c-info); }
+    .badge-warn { background: var(--c-warn-soft); color: var(--c-warn); }
+    .badge-danger { background: var(--c-danger-soft); color: var(--c-danger-hover); }
+    .badge-read { background: var(--c-read-soft); color: var(--c-read); }
+    .alert { border-radius: 8px; padding: 12px 16px; margin: 16px 0; border: 1px solid; font-size: 15px; }
+    .alert-info { background: var(--c-info-soft); border-color: #BFDBFE; color: #1E3A8A; }
+    .alert-warn { background: var(--c-warn-soft); border-color: #FDE68A; color: #78350F; }
+    .alert strong { font-weight: 600; }
+    .empty { text-align: center; padding: 40px 16px; color: var(--c-muted-fg); }
+    .empty-icon { width: 56px; height: 56px; border-radius: 50%; background: var(--c-muted); display: grid; place-items: center; margin: 0 auto 12px; color: var(--c-faint); }
+    .empty-icon svg { width: 26px; height: 26px; }
+    .empty h3 { color: var(--c-fg); font-size: 18px; font-weight: 600; }
+    .empty p { max-width: 46ch; margin: 6px auto 16px; }
+    .avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--c-primary-soft); color: var(--c-primary); display: grid; place-items: center; font-weight: 700; flex-shrink: 0; }
 
-    /* Cards */
-    .card { background: #171717; border: 1px solid #262626; border-radius: 12px; padding: 24px; margin-bottom: 16px; }
-    .card h2 { font-size: 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    /* Stepper */
+    .stepper { display: flex; list-style: none; margin-bottom: 8px; }
+    .stepper li { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; color: var(--c-faint); font-size: 14px; font-weight: 500; text-align: center; }
+    .stepper li::before { content: ''; position: absolute; top: 17px; left: -50%; width: 100%; height: 2px; background: var(--c-border); }
+    .stepper li:first-child::before { display: none; }
+    .stepper li.done::before, .stepper li.current::before { background: var(--c-primary); }
+    .step-dot { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--c-border); background: var(--c-card); display: grid; place-items: center; font-weight: 700; position: relative; z-index: 1; color: var(--c-faint); }
+    .step-dot svg { width: 18px; height: 18px; }
+    .stepper li.current { color: var(--c-primary); font-weight: 600; }
+    .stepper li.current .step-dot { border-color: var(--c-primary); background: var(--c-primary); color: #fff; }
+    .stepper li.done { color: var(--c-fg); }
+    .stepper li.done .step-dot { border-color: var(--c-primary); color: var(--c-primary); }
+    .stepper button { all: unset; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .stepper button:focus-visible { outline: 3px solid var(--c-primary); outline-offset: 4px; border-radius: 8px; }
+    .step-count { color: var(--c-muted-fg); font-size: 14px; margin-bottom: 16px; text-align: center; }
+    .wstep { display: none; }
+    .wstep.active { display: block; }
+    .wizard-foot { display: flex; justify-content: space-between; gap: 12px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--c-border); flex-wrap: wrap; }
 
-    /* Forms */
-    label { font-size: 13px; color: #a3a3a3; display: block; margin-bottom: 6px; }
-    select, input[type="text"], input[type="number"] { width: 100%; background: #0a0a0a; border: 1px solid #333; border-radius: 8px; padding: 10px 12px; color: #e5e5e5; font-size: 14px; }
-    select:focus, input:focus, textarea:focus { outline: none; border-color: #555; }
-    select option { background: #171717; color: #e5e5e5; }
-    textarea { width: 100%; background: #0a0a0a; border: 1px solid #333; border-radius: 8px; padding: 12px; color: #e5e5e5; font-family: inherit; font-size: 14px; resize: vertical; min-height: 100px; }
-    .hint { font-size: 12px; color: #666; margin-top: 6px; }
-    .row { display: flex; gap: 12px; align-items: center; margin-top: 12px; }
-    .row input[type="number"] { width: 72px; text-align: center; }
-    .row span { color: #888; font-size: 13px; }
+    /* Sender cards */
+    .sender-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+    .sender-card { position: relative; display: flex; align-items: center; gap: 12px; padding: 14px; border: 2px solid var(--c-border); border-radius: var(--radius); cursor: pointer; background: var(--c-card); transition: border-color 0.15s ease, background-color 0.15s ease; min-height: 76px; }
+    .sender-card:hover { border-color: #93C5FD; }
+    .sender-card:has(input:checked) { border-color: var(--c-primary); background: var(--c-primary-soft); }
+    .sender-card:has(input:focus-visible) { outline: 3px solid var(--c-primary); outline-offset: 2px; }
+    .sender-card.off { cursor: default; opacity: 0.7; background: var(--c-muted); }
+    .sender-card.off:hover { border-color: var(--c-border); }
+    .sender-card input { position: absolute; opacity: 0; pointer-events: none; }
+    .sender-meta { min-width: 0; flex: 1; }
+    .sender-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sender-phone { color: var(--c-muted-fg); font-size: 14px; }
+    .radio-mark { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #CBD5E1; flex-shrink: 0; display: grid; place-items: center; color: transparent; }
+    .radio-mark svg { width: 14px; height: 14px; }
+    .sender-card:has(input:checked) .radio-mark { background: var(--c-primary); border-color: var(--c-primary); color: #fff; }
 
-    /* Buttons */
-    .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity 0.2s; }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .btn-primary { background: #22c55e; color: #000; }
-    .btn-primary:hover:not(:disabled) { background: #16a34a; }
-    .btn-danger { background: #ef4444; color: #fff; }
-    .btn-danger:hover:not(:disabled) { background: #dc2626; }
-    .btn-ghost { background: transparent; border: 1px solid #333; color: #a3a3a3; padding: 8px 14px; font-size: 13px; }
-    .btn-ghost:hover:not(:disabled) { border-color: #555; color: #e5e5e5; }
-    .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 6px; }
-    .btn-row { display: flex; gap: 8px; margin-top: 16px; }
+    /* Chips */
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+    .chip { min-height: 36px; padding: 4px 12px; border-radius: 999px; border: 1px solid #BFDBFE; background: var(--c-primary-soft); color: var(--c-primary-hover); font-family: var(--mono); font-size: 14px; cursor: pointer; transition: background-color 0.15s ease; }
+    .chip:hover { background: var(--c-info-soft); }
+    .counter { color: var(--c-faint); font-size: 14px; text-align: right; margin-top: 4px; }
 
-    /* Upload */
-    input[type="file"] { display: none; }
-    .upload-area { border: 2px dashed #333; border-radius: 8px; padding: 32px; text-align: center; cursor: pointer; transition: border-color 0.2s; }
-    .upload-area:hover { border-color: #555; }
-    .upload-area.has-file { border-color: #22c55e; border-style: solid; }
-    .upload-info { color: #22c55e; font-size: 14px; }
+    /* Dropzone + table */
+    .dropzone { width: 100%; border: 2px dashed #94A3B8; border-radius: var(--radius); background: var(--c-bg); padding: 32px 16px; text-align: center; cursor: pointer; color: var(--c-muted-fg); transition: border-color 0.15s ease, background-color 0.15s ease; }
+    .dropzone:hover, .dropzone.drag { border-color: var(--c-primary); background: var(--c-primary-soft); }
+    .dropzone svg { width: 32px; height: 32px; color: var(--c-primary); margin-bottom: 8px; }
+    .dropzone strong { display: block; color: var(--c-fg); font-size: 17px; }
+    .file-box { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid #A7F3D0; background: #ECFDF5; border-radius: var(--radius); flex-wrap: wrap; }
+    .file-box .file-meta { flex: 1; min-width: 180px; }
+    .file-box .file-name { font-weight: 600; word-break: break-all; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--c-border); border-radius: 8px; margin-top: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--c-border); white-space: nowrap; }
+    th { background: var(--c-muted); font-weight: 600; }
+    tr:last-child td { border-bottom: 0; }
 
-    /* Columns / Tags */
-    .columns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-    .col-tag { background: #262626; color: #a3a3a3; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-family: monospace; cursor: pointer; }
-    .col-tag:hover { background: #333; color: #e5e5e5; }
-
-    /* Preview */
-    .preview-box { background: #0a0a0a; border: 1px solid #262626; border-radius: 8px; padding: 12px; margin-top: 12px; font-size: 13px; white-space: pre-wrap; }
-    .preview-label { font-size: 11px; color: #666; margin-bottom: 4px; }
+    /* Review + WhatsApp preview */
+    .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .summary-item { border: 1px solid var(--c-border); border-radius: 8px; padding: 12px 14px; }
+    .summary-item dt { color: var(--c-muted-fg); font-size: 14px; }
+    .summary-item dd { font-weight: 600; font-size: 17px; word-break: break-word; }
+    .wa-preview { background: #EFEAE2; border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .wa-to { font-size: 13px; color: #54656F; align-self: flex-end; margin-bottom: -6px; }
+    .wa-bubble { align-self: flex-end; max-width: min(520px, 92%); background: #D9FDD3; color: #111B21; padding: 8px 12px; border-radius: 10px 10px 2px 10px; white-space: pre-wrap; word-break: break-word; }
+    details.advanced { margin-top: 20px; border: 1px solid var(--c-border); border-radius: 8px; padding: 4px 14px; }
+    details.advanced summary { cursor: pointer; font-weight: 600; min-height: 40px; display: flex; align-items: center; }
+    details.advanced[open] { padding-bottom: 14px; }
 
     /* Progress */
-    .progress-wrap { margin-top: 16px; }
-    .progress-bar { height: 6px; background: #262626; border-radius: 3px; overflow: hidden; }
-    .progress-fill { height: 100%; background: #22c55e; transition: width 0.3s; border-radius: 3px; }
-    .progress-text { font-size: 13px; color: #a3a3a3; margin-top: 8px; display: flex; justify-content: space-between; }
+    .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0; }
+    .stat { border: 1px solid var(--c-border); border-radius: 8px; padding: 12px; text-align: center; }
+    .stat-num { font-variant-numeric: tabular-nums; font-size: 28px; font-weight: 600; line-height: 1.2; }
+    .stat-label { color: var(--c-muted-fg); font-size: 14px; }
+    .stat.ok .stat-num { color: var(--c-accent); } .stat.bad .stat-num { color: var(--c-danger); } .stat.skip .stat-num { color: var(--c-warn); }
+    .progress { height: 12px; background: var(--c-muted); border-radius: 999px; overflow: hidden; }
+    .progress-fill { height: 100%; width: 100%; background: var(--c-accent); border-radius: 999px; transform-origin: left; transform: scaleX(0); transition: transform 0.3s ease; }
+    .progress-meta { display: flex; justify-content: space-between; color: var(--c-muted-fg); font-size: 14px; margin-top: 6px; }
+    .log { max-height: 280px; overflow-y: auto; border: 1px solid var(--c-border); border-radius: 8px; margin-top: 16px; }
+    .log-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--c-border); font-size: 15px; }
+    .log-row:last-child { border-bottom: 0; }
+    .log-err { color: var(--c-muted-fg); font-size: 13px; }
 
-    /* Results log */
-    .results { max-height: 300px; overflow-y: auto; margin-top: 12px; font-size: 13px; }
-    .result-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1a1a1a; gap: 12px; }
-    .result-row .phone { color: #888; min-width: 110px; flex-shrink: 0; }
-    .result-sent { color: #22c55e; }
-    .result-failed { color: #ef4444; }
-    .result-skipped { color: #eab308; }
+    /* Numbers */
+    .add-form { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+    .add-form .field { flex: 1; min-width: 220px; margin-bottom: 0; }
+    .session-card { display: flex; flex-direction: column; gap: 14px; }
+    .session-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .session-meta { flex: 1; min-width: 140px; }
+    .session-name { font-weight: 600; font-size: 17px; word-break: break-word; }
+    .session-phone { color: var(--c-muted-fg); }
+    .qr-box { display: flex; gap: 20px; flex-wrap: wrap; align-items: center; border: 1px solid var(--c-border); border-radius: 8px; padding: 16px; }
+    .qr-box img { width: 220px; height: 220px; border-radius: 8px; background: var(--c-muted); }
+    .qr-steps { flex: 1; min-width: 220px; padding-left: 20px; }
+    .qr-steps li { margin-bottom: 6px; }
+    .pair-code { font-family: var(--mono); font-size: 28px; letter-spacing: 4px; color: var(--c-accent); font-weight: 500; }
 
-    /* Delay row */
-    .delay-row { display: flex; gap: 12px; align-items: center; margin-top: 12px; }
-    .delay-row input { width: 60px; background: #0a0a0a; border: 1px solid #333; border-radius: 6px; padding: 8px; color: #e5e5e5; font-size: 14px; text-align: center; }
-    .delay-row input:focus { outline: none; border-color: #555; }
-    .delay-row span { color: #666; font-size: 13px; }
-
-    /* Info box */
-    .info-box { background: #1a1a0a; border: 1px solid #333300; border-radius: 8px; padding: 12px 16px; font-size: 12px; color: #a3a333; line-height: 1.6; margin-bottom: 16px; }
-
-    /* Pair section */
-    .pair-section { display: flex; gap: 8px; margin-top: 12px; }
-    .pair-section input { flex: 1; }
-
-    /* Session cards */
-    .session-card { background: #171717; border: 1px solid #262626; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
-    .session-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-    .session-name { font-weight: 600; font-size: 15px; }
-    .session-phone { color: #22c55e; font-size: 13px; }
-    .session-status { color: #888; font-size: 12px; }
-    .session-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-    .session-qr { margin-top: 12px; text-align: center; }
-    .session-qr img { width: 200px; height: 200px; border-radius: 8px; }
-
-    /* Chat styles */
-    .chat-item { background: #171717; border: 1px solid #262626; border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.15s; }
-    .chat-item:hover { border-color: #444; }
-    .chat-item.active { border-color: #22c55e; }
-    .chat-jid { font-size: 14px; font-weight: 500; }
-    .chat-stats { font-size: 12px; color: #888; margin-top: 4px; }
-    .chat-time { font-size: 11px; color: #666; margin-top: 2px; }
-    .messages-container { margin-top: 12px; max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 12px; background: #0a0a0a; border: 1px solid #262626; border-radius: 8px; }
-    .msg-bubble { max-width: 75%; padding: 8px 12px; border-radius: 8px; font-size: 13px; white-space: pre-wrap; word-break: break-word; }
-    .msg-out { background: #1a2e1a; align-self: flex-end; border-bottom-right-radius: 2px; }
-    .msg-in { background: #262626; align-self: flex-start; border-bottom-left-radius: 2px; }
-    .msg-sender { font-size: 11px; color: #22c55e; margin-bottom: 2px; }
-    .msg-meta { font-size: 11px; color: #666; margin-top: 2px; display: flex; justify-content: flex-end; gap: 6px; }
-    .msg-status { color: #888; }
-    .msg-status.delivered { color: #a3a3a3; }
-    .msg-status.read { color: #3b82f6; }
-    .load-more-btn { text-align: center; margin-top: 8px; }
+    /* Chats */
+    .chat-layout { display: grid; grid-template-columns: 300px 1fr; border: 1px solid var(--c-border); border-radius: var(--radius); background: var(--c-card); overflow: hidden; min-height: 460px; }
+    .chat-list { border-right: 1px solid var(--c-border); max-height: 600px; overflow-y: auto; }
+    .chat-item { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--c-border); background: none; padding: 12px 14px; cursor: pointer; min-height: 60px; transition: background-color 0.15s ease; }
+    .chat-item:hover { background: var(--c-muted); }
+    .chat-item.active { background: var(--c-primary-soft); }
+    .chat-item .row1 { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
+    .chat-item .row1 time { font-weight: 400; color: var(--c-faint); font-size: 13px; white-space: nowrap; }
+    .chat-item .row2 { color: var(--c-muted-fg); font-size: 14px; }
+    .chat-pane { display: flex; flex-direction: column; min-width: 0; }
+    .chat-pane-head { padding: 12px 16px; border-bottom: 1px solid var(--c-border); font-weight: 600; }
+    .chat-msgs { flex: 1; max-height: 540px; overflow-y: auto; padding: 16px; background: #EFEAE2; display: flex; flex-direction: column; gap: 8px; }
+    .msg { max-width: 78%; padding: 8px 12px; border-radius: 10px; color: #111B21; }
+    .msg-text { white-space: pre-wrap; word-break: break-word; }
+    .msg-out { align-self: flex-end; background: #D9FDD3; border-bottom-right-radius: 2px; }
+    .msg-in { align-self: flex-start; background: #fff; border-bottom-left-radius: 2px; }
+    .msg-sender { font-size: 13px; font-weight: 600; color: var(--c-accent); }
+    .msg-meta { font-size: 12px; color: #54656F; margin-top: 2px; text-align: right; }
 
     /* History */
-    .history-card { background: #171717; border: 1px solid #262626; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
-    .history-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer; }
-    .history-type { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: #262626; color: #a3a3a3; margin-right: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .history-sender { font-size: 14px; font-weight: 600; }
-    .history-sender small { color: #22c55e; font-weight: 500; font-size: 12px; margin-left: 6px; }
-    .history-status { font-size: 12px; padding: 3px 8px; border-radius: 4px; font-weight: 500; flex-shrink: 0; }
-    .history-status.done { background: #1a2e1a; color: #22c55e; }
-    .history-status.running { background: #1a2433; color: #3b82f6; }
-    .history-status.cancelled, .history-status.interrupted { background: #2a2a1a; color: #eab308; }
-    .history-status.error_stopped, .history-status.banned { background: #2a1a1a; color: #ef4444; }
-    .history-stats { display: flex; gap: 16px; font-size: 13px; color: #a3a3a3; margin-top: 8px; }
-    .history-stats span { display: flex; align-items: center; gap: 4px; }
-    .history-time { font-size: 12px; color: #888; margin-top: 4px; }
-    .history-toggle { margin-top: 10px; font-size: 12px; color: #888; cursor: pointer; user-select: none; }
-    .history-toggle:hover { color: #e5e5e5; }
-    .history-detail { margin-top: 12px; }
-    .history-items { max-height: 320px; overflow-y: auto; font-size: 13px; border: 1px solid #262626; border-radius: 8px; padding: 4px 12px; background: #0a0a0a; }
-    .history-item { padding: 6px 0; border-bottom: 1px solid #1a1a1a; }
-    .history-item:last-child { border-bottom: none; }
-    .history-item-row { display: flex; gap: 12px; align-items: baseline; }
-    .history-item-time { color: #666; font-size: 12px; min-width: 64px; flex-shrink: 0; }
-    .history-item-phone { flex: 1; min-width: 0; }
-    .history-item-msg { color: #666; font-size: 12px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .result-delivered { color: #3b82f6; }
-    .result-read { color: #8b5cf6; }
-    .delivery-bar { display: flex; height: 4px; border-radius: 2px; overflow: hidden; margin-top: 8px; background: #262626; }
-    .delivery-bar .sent { background: #22c55e; }
-    .delivery-bar .delivered { background: #3b82f6; }
-    .delivery-bar .read-seg { background: #8b5cf6; }
-    .delivery-bar .failed { background: #ef4444; }
-    .delivery-legend { display: flex; gap: 12px; margin-top: 6px; font-size: 11px; color: #888; }
-    .delivery-legend span::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
-    .delivery-legend .l-sent::before { background: #22c55e; }
-    .delivery-legend .l-delivered::before { background: #3b82f6; }
-    .delivery-legend .l-read::before { background: #8b5cf6; }
-    .delivery-legend .l-failed::before { background: #ef4444; }
+    .history-card { padding: 0; overflow: hidden; }
+    .history-head { all: unset; box-sizing: border-box; display: block; width: 100%; padding: 16px 20px; cursor: pointer; }
+    .history-head:hover { background: var(--c-bg); }
+    .history-head:focus-visible { outline: 3px solid var(--c-primary); outline-offset: -3px; }
+    .history-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+    .history-title { font-weight: 600; font-size: 17px; }
+    .history-time { color: var(--c-muted-fg); font-size: 14px; margin-top: 2px; }
+    .history-stats { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .history-more { color: var(--c-primary); font-weight: 600; font-size: 14px; margin-top: 10px; display: inline-flex; align-items: center; gap: 6px; }
+    .history-more svg { width: 16px; height: 16px; transition: transform 0.15s ease; }
+    .history-card.open .history-more svg { transform: rotate(180deg); }
+    .history-detail { border-top: 1px solid var(--c-border); padding: 16px 20px; background: var(--c-bg); }
+    .msg-box { background: var(--c-card); border: 1px solid var(--c-border); border-radius: 8px; padding: 12px; white-space: pre-wrap; word-break: break-word; }
+    .item-list { max-height: 340px; overflow-y: auto; background: var(--c-card); border: 1px solid var(--c-border); border-radius: 8px; }
+    .item-row { padding: 8px 12px; border-bottom: 1px solid var(--c-border); }
+    .item-row:last-child { border-bottom: 0; }
+    .item-main { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .item-time { color: var(--c-faint); font-size: 13px; min-width: 70px; }
+    .item-phone { flex: 1; min-width: 130px; }
+    .item-sub { color: var(--c-muted-fg); font-size: 14px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-    /* Empty state */
-    .empty-state { text-align: center; padding: 32px; color: #666; font-size: 14px; }
+    /* FAQ */
+    .guide { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; list-style: none; }
+    .guide li { border: 1px solid var(--c-border); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+    .guide-num { width: 28px; height: 28px; border-radius: 50%; background: var(--c-primary); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+    .guide strong { font-weight: 600; }
+    .guide span.txt { color: var(--c-muted-fg); font-size: 14px; flex: 1; }
+    .faq details { border: 1px solid var(--c-border); border-radius: 8px; background: var(--c-card); margin-bottom: 8px; }
+    .faq summary { cursor: pointer; font-weight: 600; padding: 14px 16px; min-height: 48px; list-style: none; display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+    .faq summary::-webkit-details-marker { display: none; }
+    .faq summary::after { content: '+'; font-size: 22px; line-height: 1; color: var(--c-primary); flex-shrink: 0; }
+    .faq details[open] summary::after { content: '\2212'; }
+    .faq .answer { padding: 0 16px 16px; color: var(--c-muted-fg); max-width: 70ch; }
+    .faq .answer ol, .faq .answer ul { padding-left: 22px; margin-top: 6px; }
+    .faq .answer li { margin-bottom: 4px; }
+    .faq .answer p + p { margin-top: 8px; }
+    .faq h2 { font-size: 18px; font-weight: 600; margin: 24px 0 10px; }
 
-    @media (max-width: 600px) {
-      .container { padding: 16px; }
-      .tabs { gap: 4px; }
-      .tab { padding: 8px 6px; font-size: 11px; }
-      .msg-bubble { max-width: 90%; }
-      .history-stats { flex-wrap: wrap; gap: 8px; }
+    /* Toasts + modal */
+    .toasts { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; z-index: 60; width: max-content; max-width: min(460px, calc(100vw - 32px)); pointer-events: none; }
+    .toast { display: flex; gap: 10px; align-items: flex-start; background: var(--c-fg); color: #fff; padding: 12px 16px; border-radius: 8px; font-size: 15px; animation: toast-in 0.2s ease-out; }
+    .toast svg { width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; }
+    .toast-success { background: #065F46; }
+    .toast-error { background: #991B1B; }
+    .toast.hide { opacity: 0; transition: opacity 0.15s ease-in; }
+    @keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: grid; place-items: center; padding: 16px; z-index: 50; }
+    .modal { background: var(--c-card); border-radius: 12px; padding: 24px; width: min(460px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; }
+    .modal h2 { font-size: 20px; font-weight: 600; }
+    .modal p { color: var(--c-muted-fg); margin-top: 8px; }
+    .modal-icon { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; margin-bottom: 12px; }
+    .modal-icon svg { width: 26px; height: 26px; }
+    .modal-icon.success { background: var(--c-accent-soft); color: var(--c-accent); }
+    .modal-icon.warn { background: var(--c-warn-soft); color: var(--c-warn); }
+    .modal-icon.danger { background: var(--c-danger-soft); color: var(--c-danger); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
+
+    @media (max-width: 860px) {
+      .app { flex-direction: column; }
+      .sidebar { width: 100%; height: auto; position: sticky; top: 0; z-index: 20; border-right: 0; border-bottom: 1px solid var(--c-border); padding: 10px 12px; gap: 8px; }
+      .brand-sub, .sidebar-foot { display: none; }
+      .brand-mark { width: 32px; height: 32px; }
+      .nav { flex-direction: row; overflow-x: auto; gap: 4px; padding-bottom: 2px; }
+      .nav-item { width: auto; white-space: nowrap; flex-shrink: 0; }
+      .main { padding: 20px 16px; }
+      .stepper .step-label { display: none; }
+      .stepper li.current .step-label { display: block; }
+      .stat-grid { grid-template-columns: repeat(2, 1fr); }
+      .chat-layout { grid-template-columns: 1fr; }
+      .chat-list { border-right: 0; border-bottom: 1px solid var(--c-border); max-height: 240px; }
+      .wizard-foot .btn { flex: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; animation: none !important; }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>WA Blast</h1>
-    <p class="subtitle">Kirim pesan WhatsApp - satuan atau bulk</p>
-
-    <!-- Status bar -->
-    <div class="status-bar" id="statusBar">
-      <span class="dot red" id="statusDot"></span>
-      <span id="statusText">Checking...</span>
-      <span class="sender-info" id="senderInfo"></span>
-    </div>
-
-    <!-- Tabs -->
-    <div class="tabs">
-      <div class="tab active" onclick="switchTab('sessions')">Sessions</div>
-      <div class="tab" onclick="switchTab('quick')">Quick Send</div>
-      <div class="tab" onclick="switchTab('bulk')">Bulk Import</div>
-      <div class="tab" onclick="switchTab('chats')">Chats</div>
-      <div class="tab" onclick="switchTab('history')">History</div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- TAB: Sessions -->
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <div class="tab-content active" id="tab-sessions">
-      <div class="card">
-        <h2>WhatsApp Sessions</h2>
-        <div style="display:flex;gap:8px;margin-bottom:16px" id="addSessionForm">
-          <input type="text" id="newSessionName" placeholder="Nama session (misal: Marketing)" style="flex:1">
-          <button class="btn btn-primary btn-sm" onclick="createSession()">Add</button>
-        </div>
-        <div id="sessionsList">
-          <div class="empty-state">Loading sessions...</div>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg></div>
+        <div>
+          <div class="brand-name">WA Blast</div>
+          <div class="brand-sub">Kirim pesan WhatsApp</div>
         </div>
       </div>
-    </div>
+      <nav class="nav" aria-label="Menu utama">
+        <button class="nav-item active" data-goto="kirim"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>Kirim Pesan</button>
+        <button class="nav-item" data-goto="nomor"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/></svg>Nomor WhatsApp<span class="nav-count" id="navCount" hidden></span></button>
+        <button class="nav-item" data-goto="cepat"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>Kirim Cepat</button>
+        <button class="nav-item" data-goto="percakapan"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Percakapan</button>
+        <button class="nav-item" data-goto="riwayat"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Riwayat</button>
+        <button class="nav-item" data-goto="bantuan"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 1-1 1.7"/><path d="M12 17h.01"/></svg>Bantuan</button>
+      </nav>
+      <div class="sidebar-foot" role="status"><span class="dot" id="connDot"></span><span id="connText">Memeriksa koneksi...</span></div>
+    </aside>
 
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- TAB: Quick Send -->
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <div class="tab-content" id="tab-quick">
-      <div class="card" style="padding:12px 16px;margin-bottom:12px">
-        <label>Sender</label>
-        <select id="quickSessionSelect"></select>
-      </div>
+    <main class="main">
+      <div class="main-inner">
 
-      <div class="card">
-        <h2>Nomor Tujuan</h2>
-        <input type="text" id="quickPhone" placeholder="081234567890">
-        <div class="row">
-          <label style="margin:0">Kirim</label>
-          <input type="number" id="quickCount" value="5" min="1" max="200">
-          <span>pesan</span>
-        </div>
-      </div>
+        <!-- Kirim Pesan -->
+        <section class="page active" id="page-kirim">
+          <header class="page-head">
+            <h1 tabindex="-1">Kirim Pesan</h1>
+            <p>Kirim satu pesan ke banyak nomor sekaligus. Ikuti 5 langkah di bawah ini.</p>
+          </header>
+          <ol class="stepper" id="stepper" aria-label="Langkah pengiriman">
+            <li data-step="1"><button type="button" data-action="goto-step" data-step="1"><span class="step-dot">1</span><span class="step-label">Pilih nomor</span></button></li>
+            <li data-step="2"><button type="button" data-action="goto-step" data-step="2"><span class="step-dot">2</span><span class="step-label">Tulis pesan</span></button></li>
+            <li data-step="3"><button type="button" data-action="goto-step" data-step="3"><span class="step-dot">3</span><span class="step-label">Daftar kontak</span></button></li>
+            <li data-step="4"><button type="button" data-action="goto-step" data-step="4"><span class="step-dot">4</span><span class="step-label">Periksa</span></button></li>
+            <li data-step="5"><button type="button" data-action="goto-step" data-step="5"><span class="step-dot">5</span><span class="step-label">Kirim</span></button></li>
+          </ol>
+          <p class="step-count" id="stepCount" aria-live="polite">Langkah 1 dari 5</p>
 
-      <div class="card">
-        <h2>Pesan</h2>
-        <textarea id="quickMessage" placeholder="Tulis pesan."></textarea>
-        <div class="hint">Pesan dikirim persis seperti yang ditulis.</div>
-      </div>
+          <div class="card">
+            <div class="wstep active" data-step="1">
+              <h2>Pilih nomor pengirim</h2>
+              <p class="lead">Pesan akan dikirim dari nomor WhatsApp yang kamu pilih di sini.</p>
+              <div id="senderList"></div>
+            </div>
 
-      <div class="info-box">
-        Anti-ban: delay 3-8 detik antar pesan, jeda 30-60 detik setiap 10 pesan.
-      </div>
+            <div class="wstep" data-step="2">
+              <h2>Tulis isi pesan</h2>
+              <p class="lead">Tulis pesan seperti biasa. Semua penerima mendapat pesan yang sama.</p>
+              <div class="field">
+                <label for="template">Isi pesan</label>
+                <textarea id="template" placeholder="Contoh: Halo {{nama}}, terima kasih sudah bergabung!"></textarea>
+                <div class="counter" id="templateCount">0 karakter</div>
+                <p class="hint">Ingin menyapa dengan nama penerima? Tulis <span class="mono">{{nama}}</span> di tempat nama ingin muncul. Nanti otomatis diganti dengan isi kolom <span class="mono">nama</span> di file kontak.</p>
+                <div class="chips" id="columnTags"></div>
+              </div>
+            </div>
 
-      <button class="btn btn-primary" id="quickSendBtn" onclick="quickSend()" style="width:100%">Kirim</button>
+            <div class="wstep" data-step="3">
+              <h2>Unggah daftar kontak</h2>
+              <p class="lead">Pilih file berisi nomor tujuan. Bisa file Excel (.xlsx) atau CSV.</p>
+              <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" hidden>
+              <div id="uploadZone">
+                <button type="button" class="dropzone" id="dropzone" data-action="pick-file">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg>
+                  <strong>Klik untuk pilih file</strong>
+                  atau tarik file ke kotak ini
+                </button>
+                <p class="hint">Baris pertama berisi judul kolom, dan harus ada kolom nomor HP (misalnya <span class="mono">phone</span>, <span class="mono">hp</span>, <span class="mono">wa</span>, atau <span class="mono">nomor</span>). Belum punya filenya? <button type="button" class="btn-link" data-action="sample-file">Unduh contoh file</button></p>
+              </div>
+              <div id="uploadResult"></div>
+              <div id="varWarning3"></div>
+            </div>
 
-      <div id="quickProgress" style="display:none">
-        <div class="progress-wrap">
-          <div class="progress-bar"><div class="progress-fill" id="quickFill"></div></div>
-          <div class="progress-text">
-            <span id="quickProgressText">0 / 0</span>
-            <span id="quickStats"></span>
+            <div class="wstep" data-step="4">
+              <h2>Periksa sebelum kirim</h2>
+              <p class="lead">Pastikan semuanya sudah benar. Pesan yang sudah terkirim tidak bisa ditarik kembali.</p>
+              <dl class="summary" id="reviewSummary"></dl>
+              <div id="varWarning4"></div>
+              <p class="label">Contoh pesan yang akan diterima</p>
+              <div id="previewArea"></div>
+              <details class="advanced">
+                <summary>Pengaturan jeda (tidak wajib diubah)</summary>
+                <p class="hint" style="margin-bottom:10px">Jeda antar pesan membuat nomor lebih aman dari blokir WhatsApp. Kalau ragu, biarkan saja.</p>
+                <div class="inline-fields">
+                  <label for="delayMin" style="font-weight:400">Tunggu</label>
+                  <input type="number" id="delayMin" value="3" min="1" max="60" aria-label="Jeda paling cepat dalam detik">
+                  <span>sampai</span>
+                  <input type="number" id="delayMax" value="7" min="1" max="120" aria-label="Jeda paling lama dalam detik">
+                  <span>detik di antara tiap pesan</span>
+                </div>
+              </details>
+            </div>
+
+            <div class="wstep" data-step="5">
+              <div class="history-top">
+                <div>
+                  <h2 id="progressTitle">Mengirim pesan</h2>
+                  <p class="lead" id="progressSender" style="margin-bottom:0"></p>
+                </div>
+                <span class="badge badge-info" id="progressBadge">Sedang berjalan</span>
+              </div>
+              <div class="stat-grid">
+                <div class="stat ok"><div class="stat-num" id="statSent">0</div><div class="stat-label">Terkirim</div></div>
+                <div class="stat bad"><div class="stat-num" id="statFailed">0</div><div class="stat-label">Gagal</div></div>
+                <div class="stat skip"><div class="stat-num" id="statSkipped">0</div><div class="stat-label">Dilewati</div></div>
+                <div class="stat"><div class="stat-num" id="statLeft">0</div><div class="stat-label">Belum dikirim</div></div>
+              </div>
+              <div class="progress" role="progressbar" aria-label="Kemajuan pengiriman" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+              <div class="progress-meta"><span id="progressText" aria-live="polite">0 dari 0 kontak</span><span id="progressPct">0%</span></div>
+              <div class="alert alert-info" id="progressNote">Halaman ini boleh ditutup, pengiriman tetap berjalan. Hasil lengkapnya ada di menu Riwayat.</div>
+              <div class="log" id="results" aria-label="Hasil pengiriman terbaru"></div>
+              <div class="wizard-foot" id="progressActions"></div>
+            </div>
+
+            <div class="wizard-foot" id="wizardFoot">
+              <button type="button" class="btn btn-outline" id="wBack" data-action="wizard-back">Kembali</button>
+              <button type="button" class="btn btn-primary" id="wNext" data-action="wizard-next">Lanjut</button>
+            </div>
           </div>
-        </div>
-        <div class="results" id="quickResults"></div>
-      </div>
-    </div>
+        </section>
 
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- TAB: Bulk Import -->
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <div class="tab-content" id="tab-bulk">
-      <div class="card" style="padding:12px 16px;margin-bottom:12px">
-        <label>Sender</label>
-        <select id="bulkSessionSelect"></select>
-      </div>
-
-      <!-- Step 1: Upload -->
-      <div class="card">
-        <h2><span class="step-num" id="step1">1</span> Import Data</h2>
-        <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
-          <p style="color:#666">Klik atau drag file CSV / Excel (.xlsx)</p>
-          <p style="color:#444;font-size:12px;margin-top:4px">Harus ada kolom phone/hp/wa/nomor</p>
-        </div>
-        <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" onchange="uploadFile(this)">
-        <div id="uploadResult"></div>
-      </div>
-
-      <!-- Step 2: Compose -->
-      <div class="card">
-        <h2><span class="step-num" id="step2">2</span> Tulis Pesan</h2>
-        <label>Template (klik tag untuk insert)</label>
-        <div class="columns" id="columnTags"></div>
-        <textarea id="template" placeholder="Halo {{nama}}, terima kasih sudah bergabung!" style="margin-top:12px"></textarea>
-        <div class="hint">Gunakan <code>{{nama_kolom}}</code> untuk variable dari data</div>
-        <div class="btn-row">
-          <button class="btn btn-ghost" onclick="previewMessages()" id="previewBtn" disabled>Preview</button>
-        </div>
-        <div id="previewArea"></div>
-      </div>
-
-      <!-- Step 3: Blast -->
-      <div class="card">
-        <h2><span class="step-num" id="step3">3</span> Blast</h2>
-        <div class="delay-row">
-          <span>Delay:</span>
-          <input type="number" id="delayMin" value="3" min="1" max="30">
-          <span>-</span>
-          <input type="number" id="delayMax" value="7" min="1" max="60">
-          <span>detik antar pesan</span>
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-primary" onclick="startBlast()" id="blastBtn" disabled>Mulai Blast</button>
-          <button class="btn btn-danger" onclick="cancelBlast()" id="cancelBtn" style="display:none">Stop</button>
-          <button class="btn btn-ghost" onclick="clearAll()" id="clearBtn">Clear</button>
-        </div>
-        <div class="progress-wrap" id="progressWrap" style="display:none">
-          <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-          <div class="progress-text">
-            <span id="progressText">0 / 0</span>
-            <span id="progressStats"></span>
+        <!-- Nomor WhatsApp -->
+        <section class="page" id="page-nomor">
+          <header class="page-head">
+            <h1 tabindex="-1">Nomor WhatsApp</h1>
+            <p>Hubungkan nomor WhatsApp yang akan dipakai untuk mengirim pesan. Caranya sama seperti membuka WhatsApp Web: scan kode QR dari HP.</p>
+          </header>
+          <div class="card">
+            <h2>Tambah nomor</h2>
+            <p class="lead">Beri nama supaya mudah dikenali, lalu scan kode QR yang muncul.</p>
+            <form class="add-form" id="addSessionForm">
+              <div class="field">
+                <label for="newSessionName">Nama untuk nomor ini</label>
+                <input type="text" id="newSessionName" placeholder="Contoh: Marketing" maxlength="60" autocomplete="off">
+              </div>
+              <button type="submit" class="btn btn-primary" id="addSessionBtn">Tambah nomor</button>
+            </form>
           </div>
-        </div>
-        <div class="results" id="results"></div>
-      </div>
-    </div>
+          <div id="sessionsList"></div>
+        </section>
 
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- TAB: Chats -->
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <div class="tab-content" id="tab-chats">
-      <div class="card" style="padding:12px 16px;margin-bottom:12px">
-        <label>Session</label>
-        <select id="chatSessionSelect" onchange="loadChats()"></select>
-      </div>
-      <div id="chatsList">
-        <div class="empty-state">Pilih session untuk melihat percakapan</div>
-      </div>
-    </div>
+        <!-- Kirim Cepat -->
+        <section class="page" id="page-cepat">
+          <header class="page-head">
+            <h1 tabindex="-1">Kirim Cepat</h1>
+            <p>Kirim pesan ke satu nomor saja, tanpa perlu file kontak. Cocok untuk mencoba atau mengetes.</p>
+          </header>
+          <form class="card" id="quickForm">
+            <div class="field">
+              <label for="quickSessionSelect">Dikirim dari</label>
+              <select id="quickSessionSelect"></select>
+            </div>
+            <div class="field">
+              <label for="quickPhone">Nomor tujuan</label>
+              <input type="text" id="quickPhone" inputmode="tel" placeholder="Contoh: 081234567890" autocomplete="off">
+            </div>
+            <div class="field">
+              <label for="quickMessage">Isi pesan</label>
+              <textarea id="quickMessage" placeholder="Tulis pesan di sini"></textarea>
+              <p class="hint">Pesan dikirim persis seperti yang ditulis.</p>
+            </div>
+            <div class="field">
+              <label for="quickCount">Berapa kali dikirim</label>
+              <div class="inline-fields"><input type="number" id="quickCount" value="1" min="1" max="200"><span>kali</span></div>
+              <p class="hint">Kalau lebih dari 1 kali, ada jeda 3-8 detik di antara pesan, dan istirahat 30-60 detik setiap 10 pesan.</p>
+            </div>
+            <button type="submit" class="btn btn-accent" id="quickSendBtn">Kirim pesan</button>
+            <div id="quickProgress" hidden>
+              <div class="progress" style="margin-top:20px"><div class="progress-fill" id="quickFill"></div></div>
+              <div class="progress-meta"><span id="quickProgressText" aria-live="polite"></span><span id="quickStats"></span></div>
+              <div class="log" id="quickResults"></div>
+            </div>
+          </form>
+        </section>
 
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- TAB: History -->
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <div class="tab-content" id="tab-history">
-      <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
-        <button class="btn btn-ghost btn-sm" onclick="loadHistory()">Refresh</button>
+        <!-- Percakapan -->
+        <section class="page" id="page-percakapan">
+          <header class="page-head">
+            <h1 tabindex="-1">Percakapan</h1>
+            <p>Lihat pesan yang dikirim dari sini dan balasan yang masuk. Halaman ini hanya untuk melihat, belum bisa membalas.</p>
+          </header>
+          <div class="card">
+            <div class="field" style="margin-bottom:0">
+              <label for="chatSessionSelect">Tampilkan percakapan dari nomor</label>
+              <select id="chatSessionSelect"></select>
+            </div>
+          </div>
+          <div id="chatsWrap"></div>
+        </section>
+
+        <!-- Riwayat -->
+        <section class="page" id="page-riwayat">
+          <header class="page-head">
+            <div class="history-top">
+              <div>
+                <h1 tabindex="-1">Riwayat</h1>
+                <p>Semua pengiriman yang pernah dilakukan. Klik salah satu untuk melihat pesannya dan dikirim ke siapa saja.</p>
+              </div>
+              <button type="button" class="btn btn-outline" data-action="history-refresh">Muat ulang</button>
+            </div>
+          </header>
+          <div id="historyList"></div>
+        </section>
+
+        <!-- Bantuan -->
+        <section class="page" id="page-bantuan">
+          <header class="page-head">
+            <h1 tabindex="-1">Bantuan</h1>
+            <p>Panduan singkat dan jawaban untuk pertanyaan yang sering muncul.</p>
+          </header>
+          <div class="card">
+            <h2>Mulai dari sini</h2>
+            <p class="lead">Baru pertama kali? Ikuti empat langkah ini.</p>
+            <ol class="guide">
+              <li><span class="guide-num">1</span><strong>Hubungkan nomor</strong><span class="txt">Scan kode QR dari WhatsApp di HP, cukup sekali.</span><button type="button" class="btn btn-outline" data-goto="nomor">Buka Nomor WhatsApp</button></li>
+              <li><span class="guide-num">2</span><strong>Siapkan file kontak</strong><span class="txt">File Excel atau CSV berisi nama dan nomor HP.</span><button type="button" class="btn btn-outline" data-action="sample-file">Unduh contoh file</button></li>
+              <li><span class="guide-num">3</span><strong>Kirim pesan</strong><span class="txt">Tulis pesan, unggah file, periksa, lalu kirim.</span><button type="button" class="btn btn-outline" data-goto="kirim">Buka Kirim Pesan</button></li>
+              <li><span class="guide-num">4</span><strong>Lihat hasilnya</strong><span class="txt">Cek siapa saja yang sudah menerima dan membaca.</span><button type="button" class="btn btn-outline" data-goto="riwayat">Buka Riwayat</button></li>
+            </ol>
+          </div>
+
+          <div class="field">
+            <label for="faqSearch">Cari pertanyaan</label>
+            <input type="search" id="faqSearch" placeholder="Ketik kata kunci, misalnya: gagal, QR, file">
+          </div>
+          <div class="faq" id="faq">
+            <h2>Menghubungkan nomor</h2>
+            <details><summary>Bagaimana cara menghubungkan nomor WhatsApp?</summary><div class="answer"><ol><li>Buka menu <strong>Nomor WhatsApp</strong>, isi nama, lalu klik <strong>Tambah nomor</strong>.</li><li>Di HP, buka WhatsApp lalu masuk ke <strong>Perangkat tertaut</strong> (ada di menu titik tiga atau Setelan).</li><li>Ketuk <strong>Tautkan perangkat</strong> dan arahkan kamera ke kode QR di layar.</li><li>Tunggu sampai statusnya berubah menjadi <strong>Terhubung</strong>.</li></ol></div></details>
+            <details><summary>Kamera HP saya tidak bisa scan kode QR. Ada cara lain?</summary><div class="answer"><p>Ada. Di kartu nomor tersebut klik <strong>Pakai kode</strong>, isi nomor HP-nya, lalu klik <strong>Minta kode</strong>. Di HP, pada layar Tautkan perangkat pilih <strong>Tautkan dengan nomor telepon</strong> dan masukkan kode yang muncul.</p></div></details>
+            <details><summary>Status nomor saya "Terputus" atau "Menunggu scan QR". Harus bagaimana?</summary><div class="answer"><p>Kalau koneksi putus sebentar, sistem mencoba menyambung lagi sendiri sampai 8 kali. Kalau statusnya <strong>Menunggu scan QR</strong>, berarti nomor perlu dihubungkan ulang: scan kode QR yang muncul di menu Nomor WhatsApp.</p><p>Nomor juga bisa terputus kalau dikeluarkan dari daftar Perangkat tertaut di HP.</p></div></details>
+            <details><summary>Bisakah menghubungkan lebih dari satu nomor?</summary><div class="answer"><p>Bisa. Tambahkan nomor satu per satu di menu Nomor WhatsApp. Saat mengirim, kamu tinggal memilih mau kirim dari nomor yang mana.</p></div></details>
+
+            <h2>File kontak dan isi pesan</h2>
+            <details><summary>File kontak seperti apa yang bisa dipakai?</summary><div class="answer"><ul><li>File Excel (.xlsx atau .xls) atau CSV, ukuran paling besar 10 MB.</li><li>Baris pertama berisi judul kolom, misalnya <span class="mono">nama</span> dan <span class="mono">phone</span>.</li><li>Harus ada satu kolom berisi nomor HP. Judul kolomnya boleh <span class="mono">phone</span>, <span class="mono">hp</span>, <span class="mono">wa</span>, <span class="mono">nomor</span>, <span class="mono">telepon</span>, dan sejenisnya.</li><li>Kalau filenya Excel dengan beberapa sheet, yang dibaca hanya sheet pertama.</li></ul><p><button type="button" class="btn-link" data-action="sample-file">Unduh contoh file</button></p></div></details>
+            <details><summary>Bagaimana format nomor HP yang benar?</summary><div class="answer"><p>Bebas, selama nomor Indonesia. <span class="mono">081234567890</span>, <span class="mono">81234567890</span>, dan <span class="mono">6281234567890</span> semuanya diterima. Spasi dan tanda strip tidak masalah. Nomor yang kurang dari 9 angka akan dilewati.</p></div></details>
+            <details><summary>Apa maksud tulisan {{nama}} di dalam pesan?</summary><div class="answer"><p>Itu penanda tempat yang akan diisi otomatis dari file kontak. Kalau file punya kolom <span class="mono">nama</span> dan pesannya "Halo {{nama}}", maka Budi menerima "Halo Budi" dan Siti menerima "Halo Siti".</p><p>Kamu bisa memakai kolom apa saja, misalnya <span class="mono">{{kota}}</span> kalau ada kolom <span class="mono">kota</span>. Huruf besar atau kecil tidak berpengaruh.</p></div></details>
+            <details><summary>Ada peringatan "tidak ada di file kontak". Apa artinya?</summary><div class="answer"><p>Artinya pesanmu memakai penanda seperti <span class="mono">{{nama}}</span>, tetapi file kontak tidak punya kolom dengan judul itu. Kalau tetap dikirim, penerima akan melihat tulisan <span class="mono">{{nama}}</span> apa adanya. Perbaiki judul kolom di file atau ubah isi pesannya.</p></div></details>
+
+            <h2>Saat mengirim</h2>
+            <details><summary>Kenapa pengirimannya lama?</summary><div class="answer"><p>Sengaja diberi jeda beberapa detik di antara tiap pesan (biasanya 3-7 detik) supaya nomor tidak dianggap spam dan diblokir WhatsApp. Untuk 100 kontak kira-kira butuh 8-10 menit.</p></div></details>
+            <details><summary>Bolehkah halaman ditutup saat pengiriman berjalan?</summary><div class="answer"><p>Boleh untuk menu <strong>Kirim Pesan</strong>. Pengiriman tetap berjalan, dan hasilnya bisa dilihat di menu Riwayat. Kalau halaman dibuka lagi, kemajuannya muncul kembali.</p><p>Untuk <strong>Kirim Cepat</strong>, pengiriman juga tetap berjalan, tetapi tampilan kemajuannya hilang kalau halaman ditutup. Hasilnya tetap tercatat di Riwayat.</p></div></details>
+            <details><summary>Bagaimana cara menghentikan pengiriman?</summary><div class="answer"><p>Klik tombol <strong>Hentikan pengiriman</strong> di langkah Kirim. Pengiriman berhenti setelah pesan yang sedang diproses. Pesan yang sudah terkirim tidak bisa ditarik kembali.</p></div></details>
+            <details><summary>Bisakah dua orang mengirim di waktu yang sama?</summary><div class="answer"><p>Bisa, asalkan memakai nomor pengirim yang berbeda. Satu nomor hanya bisa menjalankan satu pengiriman massal dalam satu waktu.</p></div></details>
+            <details><summary>Kenapa ada pesan yang gagal atau dilewati?</summary><div class="answer"><ul><li><strong>Dilewati</strong>: nomornya kosong atau terlalu pendek, jadi tidak dicoba kirim.</li><li><strong>Gagal</strong>: sudah dicoba tetapi tidak terkirim, misalnya nomor tidak terdaftar di WhatsApp atau koneksi sedang terputus.</li></ul><p>Kalau 10 pesan gagal berturut-turut, pengiriman berhenti sendiri supaya nomor tetap aman.</p></div></details>
+
+            <h2>Melihat hasil</h2>
+            <details><summary>Apa arti Terkirim, Diterima, dan Dibaca?</summary><div class="answer"><ul><li><strong>Terkirim</strong>: pesan sudah keluar dari nomor pengirim (centang satu).</li><li><strong>Diterima</strong>: pesan sudah sampai di HP penerima (centang dua).</li><li><strong>Dibaca</strong>: penerima sudah membuka pesannya (centang biru). Tidak muncul kalau penerima mematikan laporan dibaca.</li></ul></div></details>
+            <details><summary>Apa bedanya Riwayat dan Percakapan?</summary><div class="answer"><p><strong>Riwayat</strong> mencatat tiap pengiriman: kapan, dari nomor mana, isi pesannya, dan dikirim ke siapa saja.</p><p><strong>Percakapan</strong> menampilkan obrolan per nomor tujuan, termasuk balasan yang masuk selama nomor terhubung.</p></div></details>
+            <details><summary>Siapa saja yang bisa melihat data di sini?</summary><div class="answer"><p>Aplikasi ini belum memakai login. Siapa pun yang punya alamat halaman ini bisa melihat semua nomor, percakapan, dan riwayat. Jangan bagikan alamatnya ke orang di luar tim.</p></div></details>
+            <p class="empty" id="faqEmpty" hidden>Tidak ada pertanyaan yang cocok dengan kata kunci itu.</p>
+          </div>
+        </section>
+
       </div>
-      <div id="historyList">
-        <div class="empty-state">Loading...</div>
-      </div>
-    </div>
+    </main>
   </div>
 
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <div id="modalRoot"></div>
+
   <script>
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    const svg = (d) => `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+    const ICON = {
+      check: svg('<path d="M20 6 9 17l-5-5"/>'),
+      alert: svg('<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>'),
+      x: svg('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>'),
+      phone: svg('<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/>'),
+      chat: svg('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'),
+      clock: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+      chevron: svg('<path d="m6 9 6 6 6-6"/>'),
+    };
+
+    const PAGES = ["kirim", "nomor", "cepat", "percakapan", "riwayat", "bantuan"];
+    const FINAL = ["done", "cancelled", "error_stopped", "banned"];
+    const ITEM_LABEL = { sent: "Terkirim", delivered: "Diterima", read: "Dibaca", failed: "Gagal", skipped: "Dilewati", pending: "Menunggu" };
+    const ITEM_BADGE = { sent: "success", delivered: "info", read: "read", failed: "danger", skipped: "warn" };
+    const JOB_LABEL = { running: "Sedang berjalan", done: "Selesai", cancelled: "Dihentikan", error_stopped: "Berhenti karena banyak gagal", banned: "Berhenti, nomor diblokir", interrupted: "Terputus" };
+    const JOB_BADGE = { running: "info", done: "success", cancelled: "warn", interrupted: "warn", error_stopped: "danger", banned: "danger" };
+
+    let sessionsCache = [];
+    let sessionsSig = null;
+    let firstLoad = true;
     let columns = [];
     let contactCount = 0;
     let uploadId = null;
+    let uploadName = "";
+    let uploadPreview = [];
     let blastSessionId = null;
     let pollInterval = null;
-    let sessionsCache = [];
-    let sessionPollInterval = null;
-    let expandedChat = null;
+    let idlePolls = 0;
+    const wizard = { step: 1, sessionId: null, running: false, finished: null };
+    let activeChat = null;
+    const expandedHistory = new Set();
+    const HISTORY_PAGE = 200;
 
-    const TAB_NAMES = ['sessions', 'quick', 'bulk', 'chats', 'history'];
+    async function api(path, opts) {
+      const r = await fetch(path, opts);
+      let d = null;
+      try { d = await r.json(); } catch {}
+      if (!r.ok) throw new Error(d?.error || `Permintaan gagal (${r.status})`);
+      return d;
+    }
+    const postJson = (path, body) => api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
-    // ─── Tab switching ───
-    function switchTab(name) {
-      TAB_NAMES.forEach((n, i) => {
-        document.querySelectorAll('.tab')[i].classList.toggle('active', n === name);
+    const initials = (name) => (String(name || "?").trim()[0] || "?").toUpperCase();
+    const sessionById = (id) => sessionsCache.find((s) => s.id === id);
+    function sessionLabel(id) {
+      const s = sessionById(id);
+      if (!s) return id || "";
+      return s.phone ? `${s.name} (+${s.phone})` : s.name;
+    }
+    const jidPhone = (jid) => {
+      const n = String(jid).replace(/@.*$/, "");
+      return /^\d+$/.test(n) ? `+${n}` : n;
+    };
+    const ERROR_TEXT = {
+      invalid_number: "Nomor tidak terdaftar di WhatsApp",
+      timeout: "Waktu kirim habis, pesan tidak terkirim",
+      connection: "Koneksi nomor pengirim terputus",
+      rate_limit: "Dibatasi WhatsApp karena terlalu banyak pesan",
+      banned: "Nomor pengirim diblokir WhatsApp",
+      auth: "Nomor pengirim perlu dihubungkan ulang",
+      unknown: "Gagal terkirim",
+    };
+    function friendlyError(text, type) {
+      if (!text) return "";
+      const kind = type || (String(text).match(/\((\w+)\)$/) || [])[1];
+      if (ERROR_TEXT[kind]) return ERROR_TEXT[kind];
+      if (text === "No phone column") return "Kolom nomor HP tidak ditemukan";
+      return text;
+    }
+    const badge = (label, kind) => `<span class="badge${kind ? ` badge-${kind}` : ""}">${esc(label)}</span>`;
+    const emptyState = (icon, title, text, action = "") => `<div class="empty"><div class="empty-icon">${icon}</div><h3>${esc(title)}</h3><p>${esc(text)}</p>${action}</div>`;
+
+    // ─── Time helpers ───
+    function parseTs(ts) {
+      if (!ts) return null;
+      const d = new Date(ts.endsWith("Z") ? ts : ts.replace(" ", "T") + "Z");
+      return isNaN(d) ? null : d;
+    }
+    function formatTime(ts) {
+      const d = parseTs(ts);
+      if (!d) return ts || "";
+      const time = d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+      if (d.toDateString() === new Date().toDateString()) return time;
+      return d.toLocaleDateString("id-ID", { day: "2-digit", month: "short" }) + " " + time;
+    }
+    function formatDateTime(ts) {
+      const d = parseTs(ts);
+      if (!d) return ts || "";
+      return d.toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    }
+    function formatClock(ts) {
+      const d = parseTs(ts);
+      if (!d) return ts || "";
+      return d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    }
+    function formatSecs(s) {
+      s = Math.max(0, Math.round(s));
+      if (s < 60) return `${s} detik`;
+      const m = Math.floor(s / 60);
+      if (m < 60) return s % 60 ? `${m} menit ${s % 60} detik` : `${m} menit`;
+      return `${Math.floor(m / 60)} jam ${m % 60} menit`;
+    }
+    function formatDuration(start, end) {
+      const a = parseTs(start), b = parseTs(end);
+      if (!a || !b || b < a) return "";
+      return formatSecs((b - a) / 1000);
+    }
+
+    // ─── Toasts and dialogs ───
+    function toast(message, type = "info", ms = 4500) {
+      const el = document.createElement("div");
+      el.className = `toast toast-${type}`;
+      if (type === "error") el.setAttribute("role", "alert");
+      el.innerHTML = `${type === "success" ? ICON.check : type === "error" ? ICON.alert : ""}<span>${esc(message)}</span>`;
+      $("toasts").appendChild(el);
+      setTimeout(() => { el.classList.add("hide"); setTimeout(() => el.remove(), 200); }, ms);
+    }
+
+    let modalResolve = null;
+    let modalReturnFocus = null;
+    function openModal(html, labelId = "modalTitle") {
+      modalReturnFocus = document.activeElement;
+      $("modalRoot").innerHTML = `<div class="modal-backdrop" data-action="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="${labelId}">${html}</div></div>`;
+      const target = $("modalRoot").querySelector("[data-autofocus]") || $("modalRoot").querySelector("button");
+      target?.focus();
+    }
+    function closeModal(result = false) {
+      if (!$("modalRoot").firstChild) return;
+      $("modalRoot").innerHTML = "";
+      const resolve = modalResolve;
+      modalResolve = null;
+      modalReturnFocus?.focus?.();
+      resolve?.(result);
+    }
+    function confirmDialog({ title, body, confirmText = "Ya", cancelText = "Batal", danger = false, accent = false }) {
+      return new Promise((resolve) => {
+        openModal(`<h2 id="modalTitle">${esc(title)}</h2><p>${body}</p>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-outline" data-action="modal-cancel"${danger || accent ? " data-autofocus" : ""}>${esc(cancelText)}</button>
+            <button type="button" class="btn ${danger ? "btn-danger" : accent ? "btn-accent" : "btn-primary"}" data-action="modal-confirm"${danger || accent ? "" : " data-autofocus"}>${esc(confirmText)}</button>
+          </div>`);
+        modalResolve = resolve;
       });
-      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-      document.getElementById('tab-' + name).classList.add('active');
-      if (name === 'chats') loadChats();
-      if (name === 'history') loadHistory();
     }
+    document.addEventListener("keydown", (e) => {
+      const modal = $("modalRoot").querySelector(".modal");
+      if (!modal) return;
+      if (e.key === "Escape") return closeModal(false);
+      if (e.key !== "Tab") return;
+      const focusable = [...modal.querySelectorAll("button, [href], input, select, textarea")].filter((el) => !el.disabled);
+      if (!focusable.length) return;
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
 
-    // ─── Health check ───
-    async function checkHealth() {
-      try {
-        const r = await fetch("/api/sessions");
-        const sessions = await r.json();
-        const connected = sessions.filter(s => s.connected);
-        const dot = document.getElementById("statusDot");
-        const text = document.getElementById("statusText");
-        const info = document.getElementById("senderInfo");
-        if (connected.length > 0) {
-          dot.className = "dot green";
-          text.textContent = `${connected.length} session terhubung`;
-          info.textContent = connected.map(s => s.phone ? `+${s.phone}` : s.name).join(", ");
-        } else if (sessions.length > 0) {
-          dot.className = "dot yellow";
-          text.textContent = "Belum ada session terhubung";
-          info.textContent = "";
-        } else {
-          dot.className = "dot yellow";
-          text.textContent = "Belum ada session - tambahkan di tab Sessions";
-          info.textContent = "";
-        }
-      } catch {
-        document.getElementById("statusDot").className = "dot red";
-        document.getElementById("statusText").textContent = "Server tidak tersedia";
-        document.getElementById("senderInfo").textContent = "";
-      }
+    // ─── Pages ───
+    function showPage(name, { focus = true, replace = false } = {}) {
+      if (!PAGES.includes(name)) name = "kirim";
+      document.querySelectorAll(".page").forEach((p) => p.classList.toggle("active", p.id === `page-${name}`));
+      document.querySelectorAll(".nav-item").forEach((n) => {
+        const on = n.dataset.goto === name;
+        n.classList.toggle("active", on);
+        if (on) n.setAttribute("aria-current", "page"); else n.removeAttribute("aria-current");
+      });
+      if (location.hash.slice(1) !== name) history[replace ? "replaceState" : "pushState"](null, "", `#${name}`);
+      if (name === "percakapan") loadChats();
+      if (name === "riwayat") loadHistory();
+      window.scrollTo(0, 0);
+      if (focus) $(`page-${name}`).querySelector("h1")?.focus({ preventScroll: true });
     }
+    window.addEventListener("popstate", () => showPage(location.hash.slice(1), { focus: false }));
 
     // ─── Sessions ───
-    async function fetchSessions() {
-      try {
-        const r = await fetch("/api/sessions");
-        sessionsCache = await r.json();
-      } catch { sessionsCache = []; }
-      return sessionsCache;
-    }
-
-    function populateSessionSelects(sessions) {
-      const selects = ['quickSessionSelect', 'bulkSessionSelect', 'chatSessionSelect'];
-      for (const id of selects) {
-        const el = document.getElementById(id);
-        const prev = el.value;
-        el.innerHTML = '<option value="">Select sender...</option>';
-        for (const s of sessions) {
-          if (!s.connected) continue;
-          const label = s.phone ? `${s.name} (+${s.phone})` : s.name;
-          el.innerHTML += `<option value="${escHtml(s.id)}">${escHtml(label)}</option>`;
-        }
-        if (prev && el.querySelector(`option[value="${prev}"]`)) el.value = prev;
-      }
-    }
-
     async function refreshSessions() {
-      const sessions = await fetchSessions();
-      populateSessionSelects(sessions);
-      renderSessionsList(sessions);
-      checkHealth();
-    }
-
-    function renderSessionsList(sessions) {
-      const el = document.getElementById("sessionsList");
-      if (!sessions.length) {
-        el.innerHTML = '<div class="empty-state">Belum ada session. Klik Add untuk menambahkan.</div>';
+      let sessions;
+      try {
+        sessions = await api("/api/sessions");
+      } catch {
+        $("connDot").className = "dot down";
+        $("connText").textContent = "Server tidak bisa dihubungi";
+        sessionsSig = null;
         return;
       }
-      el.innerHTML = sessions.map(s => {
-        const statusClass = s.connected ? 'green' : (s.hasQr ? 'yellow' : 'red');
-        const statusText = s.connected ? 'Connected' : (s.hasQr ? 'Waiting for QR scan' : s.status || 'Disconnected');
-        const phoneHtml = s.phone ? `<span class="session-phone">+${escHtml(s.phone)}</span>` : '';
-        const qrHtml = s.hasQr ? `<div class="session-qr" id="qr-${escHtml(s.id)}"><img src="" alt="QR"><p style="font-size:12px;color:#888;margin-top:4px">Scan dengan WhatsApp</p></div>` : '';
-        return `<div class="session-card" data-id="${escHtml(s.id)}">
-          <div class="session-header">
-            <span class="dot ${statusClass}"></span>
-            <span class="session-name">${escHtml(s.name)}</span>
-            ${phoneHtml}
-          </div>
-          <div class="session-status">${statusText}</div>
-          ${qrHtml}
-          <div id="pair-${escHtml(s.id)}" style="display:none;margin-top:8px">
-            <div class="pair-section">
-              <input type="text" placeholder="628xxxxxxxxxx" id="pair-phone-${escHtml(s.id)}">
-              <button class="btn btn-primary btn-sm" onclick="requestSessionPair('${escHtml(s.id)}')">Get Code</button>
-            </div>
-            <div id="pair-result-${escHtml(s.id)}" style="margin-top:6px"></div>
-          </div>
-          <div class="session-actions">
-            ${!s.connected ? `<button class="btn btn-ghost btn-sm" onclick="togglePairInput('${escHtml(s.id)}')">Pairing Code</button>` : ''}
-            <button class="btn btn-ghost btn-sm" onclick="removeSession('${escHtml(s.id)}', '${escHtml(s.name)}')" style="border-color:#ef4444;color:#ef4444">Remove</button>
-          </div>
-        </div>`;
-      }).join("");
-
-      for (const s of sessions) {
-        if (s.hasQr) loadSessionQr(s.id);
+      sessionsCache = sessions;
+      const sig = JSON.stringify(sessions.map((s) => [s.id, s.name, s.phone, s.connected, s.hasQr, s.status]));
+      if (sig !== sessionsSig) {
+        sessionsSig = sig;
+        renderConn();
+        renderSessions();
+        renderSenders();
+        populateSelects();
       }
+      sessions.filter((s) => s.hasQr).forEach((s) => loadSessionQr(s.id));
+      if (firstLoad) { firstLoad = false; resumeRunning(); }
+    }
+
+    function renderConn() {
+      const connected = sessionsCache.filter((s) => s.connected).length;
+      $("connDot").className = `dot ${connected ? "ok" : "warn"}`;
+      $("connText").textContent = connected ? `${connected} nomor terhubung` : "Belum ada nomor terhubung";
+      $("navCount").hidden = !sessionsCache.length;
+      $("navCount").textContent = `${connected}/${sessionsCache.length}`;
+      $("navCount").setAttribute("aria-label", `${connected} dari ${sessionsCache.length} nomor terhubung`);
+    }
+
+    function sessionStatus(s) {
+      if (s.connected) return badge("Terhubung", "success");
+      if (s.hasQr) return badge("Menunggu scan QR", "warn");
+      return badge("Terputus", "danger");
+    }
+
+    function renderSessions() {
+      const el = $("sessionsList");
+      if (!sessionsCache.length) {
+        el.innerHTML = `<div class="card">${emptyState(ICON.phone, "Belum ada nomor", "Isi nama di atas lalu klik Tambah nomor. Setelah itu scan kode QR yang muncul dari WhatsApp di HP.")}</div>`;
+        return;
+      }
+      el.innerHTML = sessionsCache.map((s) => `
+        <div class="card session-card" data-id="${esc(s.id)}">
+          <div class="session-top">
+            <div class="avatar" aria-hidden="true">${esc(initials(s.name))}</div>
+            <div class="session-meta">
+              <div class="session-name">${esc(s.name)}</div>
+              <div class="session-phone">${s.phone ? `<span class="num">+${esc(s.phone)}</span>` : "Nomor belum terhubung"}</div>
+            </div>
+            ${sessionStatus(s)}
+          </div>
+          ${s.hasQr ? `<div class="qr-box">
+            <img alt="Kode QR untuk menghubungkan ${esc(s.name)}" width="220" height="220">
+            <ol class="qr-steps">
+              <li>Buka WhatsApp di HP.</li>
+              <li>Masuk ke <strong>Perangkat tertaut</strong> (menu titik tiga atau Setelan).</li>
+              <li>Ketuk <strong>Tautkan perangkat</strong>.</li>
+              <li>Arahkan kamera HP ke kode QR ini.</li>
+            </ol>
+          </div>` : ""}
+          <div class="pair-box" hidden>
+            <div class="field">
+              <label for="pair-${esc(s.id)}">Nomor HP yang mau dihubungkan</label>
+              <div class="inline-fields">
+                <input type="text" id="pair-${esc(s.id)}" class="pair-phone" inputmode="tel" placeholder="Contoh: 6281234567890" style="flex:1;min-width:200px">
+                <button type="button" class="btn btn-primary" data-action="pair-request">Minta kode</button>
+              </div>
+              <p class="hint">Di HP, pada layar Tautkan perangkat pilih "Tautkan dengan nomor telepon", lalu masukkan kode yang muncul di sini.</p>
+            </div>
+            <div class="pair-result" aria-live="polite"></div>
+          </div>
+          <div class="btn-row">
+            ${!s.connected ? `<button type="button" class="btn btn-outline" data-action="pair-toggle">Tidak bisa scan? Pakai kode</button>` : ""}
+            <button type="button" class="btn btn-danger-outline" data-action="session-remove">Hapus nomor</button>
+          </div>
+        </div>`).join("");
     }
 
     async function loadSessionQr(sessionId) {
       try {
-        const r = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/qr`);
-        const d = await r.json();
-        const img = document.querySelector(`#qr-${CSS.escape(sessionId)} img`);
-        if (img && d.qr) img.src = d.qr;
+        const d = await api(`/api/sessions/${encodeURIComponent(sessionId)}/qr`);
+        const img = document.querySelector(`.session-card[data-id="${CSS.escape(sessionId)}"] .qr-box img`);
+        if (img && d.qr && img.getAttribute("src") !== d.qr) img.src = d.qr;
       } catch {}
     }
 
-    async function createSession() {
-      const name = document.getElementById("newSessionName").value.trim();
-      if (!name) return;
+    async function addSession(e) {
+      e.preventDefault();
+      const input = $("newSessionName");
+      const name = input.value.trim();
+      if (!name) { toast("Isi dulu nama untuk nomor ini.", "error"); input.focus(); return; }
+      const btn = $("addSessionBtn");
+      btn.disabled = true;
+      btn.textContent = "Menambahkan...";
       try {
-        const r = await fetch("/api/sessions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name }),
-        });
-        const d = await r.json();
-        if (!r.ok) { alert(d.error || "Failed"); return; }
-        document.getElementById("newSessionName").value = "";
+        await postJson("/api/sessions", { name });
+        input.value = "";
         await refreshSessions();
-      } catch (err) { alert(err.message); }
-    }
-
-    function togglePairInput(sessionId) {
-      const el = document.getElementById(`pair-${sessionId}`);
-      el.style.display = el.style.display === "none" ? "block" : "none";
-    }
-
-    async function requestSessionPair(sessionId) {
-      const phone = document.getElementById(`pair-phone-${sessionId}`).value.replace(/\D/g, "");
-      if (!phone) return;
-      try {
-        const r = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/pair`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone }),
-        });
-        const d = await r.json();
-        document.getElementById(`pair-result-${sessionId}`).innerHTML = d.code
-          ? `<span style="color:#22c55e;font-size:24px;font-weight:700;letter-spacing:4px">${d.code}</span>`
-          : `<span style="color:#ef4444">${d.error || 'Error'}</span>`;
+        toast("Nomor ditambahkan. Scan kode QR yang muncul di bawah.", "success");
       } catch (err) {
-        document.getElementById(`pair-result-${sessionId}`).innerHTML = `<span style="color:#ef4444">${err.message}</span>`;
+        toast(err.message, "error");
+      }
+      btn.disabled = false;
+      btn.textContent = "Tambah nomor";
+    }
+
+    async function removeSession(card) {
+      const s = sessionById(card.dataset.id);
+      if (!s) return;
+      const ok = await confirmDialog({
+        title: `Hapus nomor ${s.name}?`,
+        body: "Nomor ini akan diputus dari sini dan percakapannya ikut terhapus. Riwayat pengiriman tetap tersimpan.",
+        confirmText: "Ya, hapus",
+        danger: true,
+      });
+      if (!ok) return;
+      try {
+        await api(`/api/sessions/${encodeURIComponent(s.id)}`, { method: "DELETE" });
+        await refreshSessions();
+        toast(`Nomor ${s.name} dihapus.`, "success");
+      } catch (err) {
+        toast(err.message, "error");
       }
     }
 
-    async function removeSession(sessionId, name) {
-      if (!confirm(`Remove session "${name}"? This will disconnect and delete the session.`)) return;
+    async function requestPair(card, btn) {
+      const phone = card.querySelector(".pair-phone").value.replace(/\D/g, "");
+      const out = card.querySelector(".pair-result");
+      if (!phone) { toast("Isi dulu nomor HP-nya.", "error"); return; }
+      btn.disabled = true;
       try {
-        await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" });
-        await refreshSessions();
-      } catch (err) { alert(err.message); }
+        const d = await postJson(`/api/sessions/${encodeURIComponent(card.dataset.id)}/pair`, { phone });
+        out.innerHTML = `<p class="hint">Masukkan kode ini di HP:</p><div class="pair-code">${esc(d.code)}</div>`;
+      } catch (err) {
+        out.innerHTML = "";
+        toast(err.message, "error");
+      }
+      btn.disabled = false;
     }
 
-    // ─── Quick Send ───
-    async function quickSend() {
-      const sessionId = document.getElementById("quickSessionSelect").value;
-      const phone = document.getElementById("quickPhone").value.trim();
-      const message = document.getElementById("quickMessage").value.trim();
-      const count = parseInt(document.getElementById("quickCount").value) || 1;
-      if (!sessionId) return alert("Pilih sender dulu");
-      if (!phone || !message) return alert("Isi nomor dan pesan");
+    function populateSelects() {
+      const fill = (id, list, placeholder) => {
+        const el = $(id);
+        const prev = el.value;
+        el.innerHTML = `<option value="">${esc(placeholder)}</option>` + list.map((s) => `<option value="${esc(s.id)}">${esc(sessionLabel(s.id))}</option>`).join("");
+        if (list.some((s) => s.id === prev)) el.value = prev;
+        else if (list.length === 1) el.value = list[0].id;
+      };
+      const connected = sessionsCache.filter((s) => s.connected);
+      fill("quickSessionSelect", connected, connected.length ? "Pilih nomor pengirim" : "Belum ada nomor terhubung");
+      const before = $("chatSessionSelect").value;
+      fill("chatSessionSelect", sessionsCache, sessionsCache.length ? "Pilih nomor" : "Belum ada nomor");
+      if ($("chatSessionSelect").value !== before && $("page-percakapan").classList.contains("active")) loadChats();
+    }
 
-      const btn = document.getElementById("quickSendBtn");
+    // ─── Kirim Pesan: wizard ───
+    function renderSenders() {
+      const connected = sessionsCache.filter((s) => s.connected);
+      if (wizard.sessionId && wizard.step < 5 && !connected.some((s) => s.id === wizard.sessionId)) {
+        wizard.sessionId = null;
+        if (wizard.step > 1) { toast("Nomor pengirim terputus. Pilih nomor lain.", "error"); setStep(1); }
+      }
+      if (!wizard.sessionId && connected.length === 1) wizard.sessionId = connected[0].id;
+      const el = $("senderList");
+      if (!connected.length) {
+        el.innerHTML = emptyState(ICON.phone, "Belum ada nomor WhatsApp yang terhubung",
+          "Hubungkan dulu nomor yang akan dipakai mengirim. Caranya cukup scan kode QR dari HP, seperti membuka WhatsApp Web.",
+          `<button type="button" class="btn btn-primary" data-goto="nomor">Hubungkan nomor</button>`);
+      } else {
+        const others = sessionsCache.filter((s) => !s.connected);
+        el.innerHTML = `<div class="sender-grid" role="radiogroup" aria-label="Nomor pengirim">` +
+          connected.map((s) => `<label class="sender-card">
+            <input type="radio" name="sender" value="${esc(s.id)}" ${s.id === wizard.sessionId ? "checked" : ""}>
+            <span class="avatar" aria-hidden="true">${esc(initials(s.name))}</span>
+            <span class="sender-meta"><span class="sender-name">${esc(s.name)}</span><br><span class="sender-phone num">${s.phone ? "+" + esc(s.phone) : ""}</span></span>
+            <span class="radio-mark" aria-hidden="true">${ICON.check}</span>
+          </label>`).join("") +
+          others.map((s) => `<div class="sender-card off">
+            <span class="avatar" aria-hidden="true">${esc(initials(s.name))}</span>
+            <span class="sender-meta"><span class="sender-name">${esc(s.name)}</span><br><span class="sender-phone">Belum terhubung</span></span>
+          </div>`).join("") +
+          `</div><p class="hint" style="margin-top:12px">Nomor yang dicari tidak ada? <button type="button" class="btn-link" data-goto="nomor">Hubungkan nomor baru</button></p>`;
+      }
+      updateWizard();
+    }
+
+    const templateVars = () => [...new Set([...$("template").value.matchAll(/\{\{([^}]+)\}\}/g)].map((m) => m[1].trim()))];
+    function missingVars() {
+      if (!uploadId) return [];
+      const cols = columns.map((c) => c.toLowerCase());
+      return templateVars().filter((v) => !cols.includes(v.toLowerCase()));
+    }
+
+    function renderChips() {
+      const cols = columns.length ? columns : ["nama"];
+      $("columnTags").innerHTML = `<span class="hint" style="margin:0">${columns.length ? "Kolom di file kamu, klik untuk menyisipkan:" : "Klik untuk menyisipkan:"}</span>` +
+        cols.map((c) => `<button type="button" class="chip" data-action="insert-var" data-col="${esc(c)}">{{${esc(c)}}}</button>`).join("");
+    }
+
+    function insertVar(col) {
+      const ta = $("template");
+      const pos = ta.selectionStart ?? ta.value.length;
+      const tag = `{{${col}}}`;
+      ta.value = ta.value.slice(0, pos) + tag + ta.value.slice(pos);
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = pos + tag.length;
+      onTemplateInput();
+    }
+
+    function onTemplateInput() {
+      $("templateCount").textContent = `${$("template").value.length} karakter`;
+      updateWizard();
+    }
+
+    function renderVarWarning() {
+      const miss = missingVars();
+      const html = miss.length ? `<div class="alert alert-warn" role="alert"><strong>Perlu dicek:</strong> ${miss.map((v) => `<span class="mono">{{${esc(v)}}}</span>`).join(", ")} tidak ada di file kontak, jadi akan terkirim apa adanya. Kolom yang tersedia: ${columns.map((c) => `<span class="mono">${esc(c)}</span>`).join(", ")}. <button type="button" class="btn-link" data-action="goto-step" data-step="2">Ubah pesan</button></div>` : "";
+      $("varWarning3").innerHTML = html;
+      $("varWarning4").innerHTML = html;
+    }
+
+    function renderUpload() {
+      $("uploadZone").hidden = !!uploadId;
+      if (!uploadId) { $("uploadResult").innerHTML = ""; renderVarWarning(); return; }
+      $("uploadResult").innerHTML = `
+        <div class="file-box">
+          <span class="badge badge-success">${ICON.check}Terbaca</span>
+          <div class="file-meta"><div class="file-name">${esc(uploadName)}</div><div class="hint" style="margin:0">${contactCount} kontak ditemukan</div></div>
+          <button type="button" class="btn btn-outline" data-action="pick-file">Ganti file</button>
+        </div>
+        <p class="label" style="margin-top:16px">Isi file (${Math.min(uploadPreview.length, contactCount)} baris pertama)</p>
+        <div class="table-wrap"><table>
+          <thead><tr>${columns.map((c) => `<th scope="col">${esc(c)}</th>`).join("")}</tr></thead>
+          <tbody>${uploadPreview.map((row) => `<tr>${columns.map((c) => `<td>${esc(row[c] ?? "")}</td>`).join("")}</tr>`).join("")}</tbody>
+        </table></div>`;
+      renderVarWarning();
+    }
+
+    async function handleFile(file) {
+      if (!file) return;
+      const form = new FormData();
+      if (uploadId) form.append("replaces", uploadId);
+      form.append("file", file);
+      $("dropzone").disabled = true;
+      try {
+        const d = await api("/api/upload", { method: "POST", body: form });
+        uploadId = d.uploadId;
+        uploadName = file.name;
+        contactCount = d.count;
+        columns = d.columns;
+        uploadPreview = d.preview || [];
+        renderUpload();
+        renderChips();
+        updateWizard();
+        toast(`${d.count} kontak terbaca dari ${file.name}.`, "success");
+      } catch (err) {
+        toast(err.message, "error");
+      }
+      $("dropzone").disabled = false;
+      $("fileInput").value = "";
+    }
+
+    function downloadSample() {
+      const csv = "nama,phone\nBudi,081234567890\nSiti,081298765432\nAndi,6281311112222\n";
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+      a.download = "contoh-kontak.csv";
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast("Contoh file diunduh. Buka dengan Excel, ganti isinya, lalu simpan.", "success");
+    }
+
+    function delays() {
+      let min = Math.max(1, parseInt($("delayMin").value) || 3);
+      let max = Math.max(1, parseInt($("delayMax").value) || 7);
+      if (min > max) [min, max] = [max, min];
+      return { min, max };
+    }
+
+    function renderReview() {
+      const { min, max } = delays();
+      const est = Math.max(0, contactCount - 1) * ((min + max) / 2) + contactCount * 1;
+      $("reviewSummary").innerHTML = `
+        <div class="summary-item"><dt>Dikirim dari</dt><dd>${esc(sessionLabel(wizard.sessionId))}</dd></div>
+        <div class="summary-item"><dt>Jumlah penerima</dt><dd>${contactCount} kontak</dd></div>
+        <div class="summary-item"><dt>Perkiraan waktu</dt><dd>sekitar ${esc(formatSecs(est))}</dd></div>`;
+    }
+
+    async function loadPreview() {
+      renderReview();
+      renderVarWarning();
+      $("previewArea").innerHTML = `<p class="hint">Menyiapkan contoh pesan...</p>`;
+      try {
+        const d = await postJson("/api/preview", { template: $("template").value, uploadId });
+        $("previewArea").innerHTML = `<div class="wa-preview">${d.previews.map((p) => `<div class="wa-bubble">${esc(p.rendered)}</div>`).join("")}</div>
+          <p class="hint">Menampilkan ${d.previews.length} dari ${contactCount} kontak.</p>`;
+      } catch (err) {
+        $("previewArea").innerHTML = `<div class="alert alert-warn" role="alert">${esc(err.message)}. Coba unggah ulang file kontaknya.</div>`;
+      }
+    }
+
+    function stepReady(n) {
+      if (n === 1) return !!wizard.sessionId;
+      if (n === 2) return !!$("template").value.trim();
+      if (n === 3) return !!uploadId && contactCount > 0;
+      return true;
+    }
+
+    function setStep(n) {
+      wizard.step = n;
+      document.querySelectorAll(".wstep").forEach((el) => el.classList.toggle("active", Number(el.dataset.step) === n));
+      if (n === 2) renderChips();
+      if (n === 3) renderUpload();
+      if (n === 4) loadPreview();
+      updateWizard();
+      const heading = document.querySelector(`.wstep[data-step="${n}"] h2`);
+      heading?.setAttribute("tabindex", "-1");
+      heading?.focus({ preventScroll: true });
+      $("stepper").scrollIntoView({ block: "nearest" });
+    }
+
+    function updateWizard() {
+      const n = wizard.step;
+      const locked = n === 5;
+      document.querySelectorAll("#stepper li").forEach((li) => {
+        const s = Number(li.dataset.step);
+        li.classList.toggle("done", s < n);
+        li.classList.toggle("current", s === n);
+        const btn = li.querySelector("button");
+        const dot = li.querySelector(".step-dot");
+        dot.innerHTML = s < n ? ICON.check : String(s);
+        btn.disabled = locked || s >= n;
+        btn.style.cursor = btn.disabled ? "default" : "pointer";
+        if (s === n) li.setAttribute("aria-current", "step"); else li.removeAttribute("aria-current");
+      });
+      $("stepCount").textContent = `Langkah ${n} dari 5`;
+      $("wizardFoot").hidden = locked;
+      $("wBack").style.visibility = n === 1 ? "hidden" : "visible";
+      const next = $("wNext");
+      next.disabled = !stepReady(n);
+      next.className = `btn ${n === 4 ? "btn-accent" : "btn-primary"}`;
+      next.textContent = n === 4 ? `Kirim ke ${contactCount} kontak` : "Lanjut";
+    }
+
+    function wizardHint() {
+      if (wizard.step === 1) return "Pilih dulu nomor pengirimnya.";
+      if (wizard.step === 2) return "Isi pesannya masih kosong.";
+      if (wizard.step === 3) return "Unggah dulu file kontaknya.";
+      return "";
+    }
+
+    async function wizardNext() {
+      if (!stepReady(wizard.step)) { toast(wizardHint(), "error"); return; }
+      if (wizard.step === 4) return startBlast();
+      setStep(wizard.step + 1);
+    }
+
+    async function startBlast() {
+      const miss = missingVars();
+      const { min, max } = delays();
+      const ok = await confirmDialog({
+        title: `Kirim ke ${contactCount} kontak?`,
+        body: `Pesan akan dikirim dari <strong>${esc(sessionLabel(wizard.sessionId))}</strong>. Pesan yang sudah terkirim tidak bisa ditarik kembali.` +
+          (miss.length ? `<br><br><strong>Perhatian:</strong> ${miss.map((v) => `<span class="mono">{{${esc(v)}}}</span>`).join(", ")} tidak ada di file kontak dan akan terkirim apa adanya.` : ""),
+        confirmText: "Ya, kirim sekarang",
+        cancelText: "Periksa lagi",
+        accent: true,
+      });
+      if (!ok) return;
+      $("wNext").disabled = true;
+      try {
+        await postJson("/api/blast", { sessionId: wizard.sessionId, uploadId, template: $("template").value, delayMin: min, delayMax: max });
+      } catch (err) {
+        toast(err.message, "error");
+        updateWizard();
+        return;
+      }
+      attachBlast(wizard.sessionId);
+      toast("Pengiriman dimulai.", "success");
+    }
+
+    function attachBlast(sessionId) {
+      blastSessionId = sessionId;
+      wizard.sessionId = sessionId;
+      wizard.running = true;
+      wizard.finished = null;
+      idlePolls = 0;
+      renderProgress({ status: "running", total: contactCount, current: 0, sent: 0, failed: 0, skipped: 0, results: [] });
+      setStep(5);
+      clearInterval(pollInterval);
+      pollInterval = setInterval(pollStatus, 1000);
+      pollStatus();
+    }
+
+    async function pollStatus() {
+      let d;
+      try { d = await api(`/api/status?sessionId=${encodeURIComponent(blastSessionId)}`); } catch { return; }
+      if (!d || d.status === "idle") {
+        if (++idlePolls >= 5 && wizard.running) {
+          clearInterval(pollInterval);
+          wizard.running = false;
+          wizard.finished = { status: "interrupted" };
+          $("progressBadge").outerHTML = `<span class="badge badge-warn" id="progressBadge">Terputus</span>`;
+          renderProgressActions();
+          toast("Pengiriman terputus karena server dimulai ulang. Cek menu Riwayat untuk hasilnya.", "error", 8000);
+        }
+        return;
+      }
+      idlePolls = 0;
+      renderProgress(d);
+      if (FINAL.includes(d.status) && wizard.running) {
+        clearInterval(pollInterval);
+        wizard.running = false;
+        wizard.finished = d;
+        renderProgressActions();
+        showResult(d);
+      }
+    }
+
+    function renderProgress(d) {
+      const total = d.total || 0;
+      const current = d.current || 0;
+      const pct = total ? Math.round((current / total) * 100) : 0;
+      const running = d.status === "running";
+      $("progressTitle").textContent = running ? "Mengirim pesan" : "Pengiriman selesai diproses";
+      $("progressSender").textContent = `Dari ${sessionLabel(blastSessionId)}`;
+      $("progressBadge").outerHTML = `<span class="badge badge-${JOB_BADGE[d.status] || "info"}" id="progressBadge">${esc(JOB_LABEL[d.status] || d.status)}</span>`;
+      $("statSent").textContent = d.sent || 0;
+      $("statFailed").textContent = d.failed || 0;
+      $("statSkipped").textContent = d.skipped || 0;
+      $("statLeft").textContent = Math.max(0, total - current);
+      $("progressFill").style.transform = `scaleX(${pct / 100})`;
+      $("progressBar").setAttribute("aria-valuenow", pct);
+      $("progressText").textContent = `${current} dari ${total} kontak`;
+      $("progressPct").textContent = `${pct}%`;
+      $("progressNote").hidden = !running;
+      const rows = (d.results || []).slice(-50).reverse();
+      $("results").hidden = !rows.length;
+      $("results").innerHTML = rows.map((r) => `<div class="log-row">
+        <span><span class="num">${esc(r.phone)}</span>${r.error ? `<br><span class="log-err">${esc(friendlyError(r.error, r.errorType))}</span>` : ""}</span>
+        ${badge(ITEM_LABEL[r.status] || r.status, ITEM_BADGE[r.status])}
+      </div>`).join("");
+      renderProgressActions();
+    }
+
+    function renderProgressActions() {
+      $("progressActions").innerHTML = wizard.running
+        ? `<span></span><button type="button" class="btn btn-danger-outline" data-action="blast-stop">Hentikan pengiriman</button>`
+        : `<button type="button" class="btn btn-outline" data-goto="riwayat">Lihat riwayat</button><button type="button" class="btn btn-primary" data-action="blast-new">Kirim pesan baru</button>`;
+    }
+
+    function showResult(d) {
+      const kind = d.status === "done" ? "success" : d.status === "cancelled" ? "warn" : "danger";
+      const title = { done: "Pengiriman selesai", cancelled: "Pengiriman dihentikan", error_stopped: "Pengiriman berhenti sendiri", banned: "Pengiriman berhenti: nomor diblokir" }[d.status];
+      const note = { done: "", cancelled: "Kontak yang belum dikirimi tidak akan menerima pesan.", error_stopped: "Terlalu banyak pesan gagal berturut-turut, jadi dihentikan supaya nomor tetap aman. Cek koneksi nomornya lalu coba lagi.", banned: "WhatsApp menolak pengiriman dari nomor ini. Jangan dipakai mengirim dulu." }[d.status];
+      const left = Math.max(0, (d.total || 0) - (d.current || 0));
+      toast(`${title}: ${d.sent || 0} terkirim, ${d.failed || 0} gagal.`, kind === "success" ? "success" : "error", 6000);
+      openModal(`<div class="modal-icon ${kind}">${kind === "success" ? ICON.check : ICON.alert}</div>
+        <h2 id="modalTitle">${esc(title)}</h2>
+        <p>Dari ${esc(sessionLabel(blastSessionId))}.${note ? " " + esc(note) : ""}</p>
+        <div class="history-stats" style="margin-top:16px">
+          ${badge(`${d.sent || 0} terkirim`, "success")}
+          ${badge(`${d.failed || 0} gagal`, d.failed ? "danger" : "")}
+          ${d.skipped ? badge(`${d.skipped} dilewati`, "warn") : ""}
+          ${left ? badge(`${left} belum dikirim`, "warn") : ""}
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" data-action="result-history">Lihat riwayat</button>
+          <button type="button" class="btn btn-primary" data-action="modal-cancel" data-autofocus>Tutup</button>
+        </div>`);
+    }
+
+    async function stopBlast() {
+      const ok = await confirmDialog({
+        title: "Hentikan pengiriman?",
+        body: "Pesan yang sudah terkirim tidak bisa ditarik. Kontak yang belum dikirimi tidak akan menerima pesan.",
+        confirmText: "Ya, hentikan",
+        cancelText: "Lanjutkan kirim",
+        danger: true,
+      });
+      if (!ok) return;
+      try {
+        await postJson("/api/cancel", { sessionId: blastSessionId });
+        toast("Menghentikan setelah pesan yang sedang diproses...");
+      } catch (err) {
+        toast(err.message, "error");
+      }
+    }
+
+    async function newBlast() {
+      if (uploadId) { try { await postJson("/api/clear", { uploadId }); } catch {} }
+      uploadId = null; uploadName = ""; contactCount = 0; columns = []; uploadPreview = [];
+      wizard.finished = null;
+      const stillConnected = sessionsCache.some((s) => s.id === wizard.sessionId && s.connected);
+      if (!stillConnected) wizard.sessionId = null;
+      renderSenders();
+      setStep(stillConnected ? 2 : 1);
+    }
+
+    async function resumeRunning() {
+      for (const s of sessionsCache.filter((x) => x.connected)) {
+        try {
+          const d = await api(`/api/status?sessionId=${encodeURIComponent(s.id)}`);
+          if (d?.status === "running") {
+            contactCount = d.total || 0;
+            attachBlast(s.id);
+            toast(`Pengiriman dari ${s.name} masih berjalan.`);
+            return;
+          }
+        } catch {}
+      }
+    }
+
+    // ─── Kirim Cepat ───
+    async function quickSend(e) {
+      e.preventDefault();
+      const sessionId = $("quickSessionSelect").value;
+      const phone = $("quickPhone").value.trim();
+      const message = $("quickMessage").value.trim();
+      const count = Math.max(1, parseInt($("quickCount").value) || 1);
+      if (!sessionId) { toast("Pilih dulu nomor pengirimnya.", "error"); $("quickSessionSelect").focus(); return; }
+      if (!phone) { toast("Isi dulu nomor tujuannya.", "error"); $("quickPhone").focus(); return; }
+      if (!message) { toast("Isi pesannya masih kosong.", "error"); $("quickMessage").focus(); return; }
+      if (count > 1) {
+        const ok = await confirmDialog({ title: `Kirim ${count} kali ke ${phone}?`, body: "Pesan yang sama akan dikirim berulang ke nomor ini.", confirmText: "Ya, kirim", accent: true });
+        if (!ok) return;
+      }
+
+      const btn = $("quickSendBtn");
       btn.disabled = true;
       btn.textContent = "Mengirim...";
-      document.getElementById("quickProgress").style.display = "block";
-      document.getElementById("quickResults").innerHTML = "";
-      document.getElementById("quickFill").style.width = "0%";
-
+      $("quickProgress").hidden = false;
+      $("quickResults").innerHTML = "";
+      $("quickFill").style.transform = "scaleX(0)";
+      $("quickProgressText").textContent = `0 dari ${count}`;
+      $("quickStats").textContent = "";
       let sent = 0, failed = 0, current = 0;
 
       try {
-        const res = await fetch("/api/quick-send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId, phone, message, count }),
-        });
-
+        const res = await fetch("/api/quick-send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId, phone, message, count }) });
+        if (!res.ok) {
+          let d = null;
+          try { d = await res.json(); } catch {}
+          throw new Error(d?.error || `Permintaan gagal (${res.status})`);
+        }
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
-
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n");
           buffer = lines.pop() || "";
-
           for (const line of lines) {
             if (!line.trim()) continue;
-            try {
-              const d = JSON.parse(line);
-              if (d.done) continue;
-              current++;
-              if (d.status === "sent") sent++;
-              else failed++;
-
-              const pct = Math.round((current / count) * 100);
-              document.getElementById("quickFill").style.width = pct + "%";
-              document.getElementById("quickProgressText").textContent = `${current} / ${count}`;
-              document.getElementById("quickStats").textContent = `${sent} terkirim · ${failed} gagal`;
-
-              const el = document.getElementById("quickResults");
-              el.innerHTML = `<div class="result-row"><span class="phone">${escHtml(d.phone)} #${current}</span><span class="result-${d.status}">${d.status}</span>${d.error ? `<span class="result-failed">${escHtml(d.error)}</span>` : ''}</div>` + el.innerHTML;
-            } catch {}
+            let d;
+            try { d = JSON.parse(line); } catch { continue; }
+            if (d.done) continue;
+            current++;
+            if (d.status === "sent") sent++; else failed++;
+            $("quickFill").style.transform = `scaleX(${current / count})`;
+            $("quickProgressText").textContent = `${current} dari ${count}`;
+            $("quickStats").textContent = `${sent} terkirim, ${failed} gagal`;
+            $("quickResults").insertAdjacentHTML("afterbegin", `<div class="log-row">
+              <span><span class="num">${esc(d.phone)}</span> pesan ke-${current}${d.error ? `<br><span class="log-err">${esc(d.error)}</span>` : ""}</span>
+              ${badge(ITEM_LABEL[d.status] || d.status, ITEM_BADGE[d.status])}
+            </div>`);
           }
         }
+        toast(failed ? `${sent} terkirim, ${failed} gagal.` : `Pesan terkirim ke ${phone}.`, failed ? "error" : "success");
       } catch (err) {
-        document.getElementById("quickResults").innerHTML = `<div class="result-row"><span class="result-failed">${escHtml(err.message)}</span></div>`;
+        toast(err.message, "error");
       }
-
       btn.disabled = false;
-      btn.textContent = "Kirim";
+      btn.textContent = "Kirim pesan";
     }
 
-    function escHtml(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
-
-    // ─── Bulk: Upload ───
-    async function uploadFile(input) {
-      const file = input.files[0];
-      if (!file) return;
-      const form = new FormData();
-      if (uploadId) form.append("replaces", uploadId);
-      form.append("file", file);
-      const r = await fetch("/api/upload", { method: "POST", body: form });
-      const d = await r.json();
-      if (!r.ok) {
-        document.getElementById("uploadResult").innerHTML = `<p style="color:#ef4444;margin-top:8px">${escHtml(d.error)}</p>`;
-        return;
-      }
-      uploadId = d.uploadId;
-      contactCount = d.count;
-      columns = d.columns;
-      document.getElementById("uploadArea").className = "upload-area has-file";
-      document.getElementById("uploadArea").innerHTML = `<p class="upload-info">${escHtml(file.name)} - ${d.count} kontak</p>`;
-      document.getElementById("step1").className = "step-num active";
-      document.getElementById("columnTags").innerHTML = columns.map(c => `<span class="col-tag" onclick="insertTag('${escHtml(c)}')">{{${escHtml(c)}}}</span>`).join("");
-      document.getElementById("previewBtn").disabled = false;
-      updateBlastBtn();
-
-      let html = '<div style="margin-top:12px;font-size:12px;color:#666;overflow-x:auto"><table style="width:100%;border-collapse:collapse">';
-      html += '<tr>' + columns.map(c => `<th style="text-align:left;padding:4px 8px;border-bottom:1px solid #262626;color:#888">${escHtml(c)}</th>`).join("") + '</tr>';
-      d.preview.forEach(row => {
-        html += '<tr>' + columns.map(c => `<td style="padding:4px 8px;border-bottom:1px solid #1a1a1a">${escHtml(row[c] ?? '')}</td>`).join("") + '</tr>';
-      });
-      html += '</table></div>';
-      document.getElementById("uploadResult").innerHTML = html;
-    }
-
-    function insertTag(col) {
-      const ta = document.getElementById("template");
-      const pos = ta.selectionStart;
-      const val = ta.value;
-      const tag = `{{${col}}}`;
-      ta.value = val.slice(0, pos) + tag + val.slice(pos);
-      ta.focus();
-      ta.selectionStart = ta.selectionEnd = pos + tag.length;
-    }
-
-    // ─── Bulk: Preview ───
-    async function previewMessages() {
-      const template = document.getElementById("template").value;
-      if (!template) return;
-      const r = await fetch("/api/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ template, uploadId }) });
-      const d = await r.json();
-      if (!r.ok) return;
-      document.getElementById("step2").className = "step-num active";
-      document.getElementById("previewArea").innerHTML = d.previews.map((p, i) =>
-        `<div class="preview-box"><div class="preview-label">Preview #${i + 1}</div>${escHtml(p.rendered)}</div>`
-      ).join("");
-      updateBlastBtn();
-    }
-
-    function updateBlastBtn() {
-      document.getElementById("blastBtn").disabled = !(contactCount > 0 && document.getElementById("template").value.trim());
-    }
-    document.getElementById("template").addEventListener("input", updateBlastBtn);
-
-    // ─── Bulk: Blast ───
-    async function startBlast() {
-      const sessionId = document.getElementById("bulkSessionSelect").value;
-      if (!sessionId) return alert("Pilih sender dulu");
-      const template = document.getElementById("template").value;
-      const delayMin = parseInt(document.getElementById("delayMin").value) || 3;
-      const delayMax = parseInt(document.getElementById("delayMax").value) || 7;
-      const r = await fetch("/api/blast", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, uploadId, template, delayMin, delayMax }),
-      });
-      const d = await r.json();
-      if (!r.ok) { alert(d.error); return; }
-      blastSessionId = sessionId;
-      document.getElementById("blastBtn").style.display = "none";
-      document.getElementById("cancelBtn").style.display = "inline-flex";
-      document.getElementById("clearBtn").disabled = true;
-      document.getElementById("progressWrap").style.display = "block";
-      document.getElementById("step3").className = "step-num active";
-      document.getElementById("results").innerHTML = "";
-      pollInterval = setInterval(pollStatus, 1000);
-    }
-
-    async function pollStatus() {
-      const r = await fetch(`/api/status?sessionId=${encodeURIComponent(blastSessionId)}`);
-      const d = await r.json();
-      if (d.status === "idle") return;
-      const pct = d.total > 0 ? Math.round((d.current / d.total) * 100) : 0;
-      document.getElementById("progressFill").style.width = pct + "%";
-      document.getElementById("progressText").textContent = `${d.current ?? 0} / ${d.total ?? 0}`;
-      document.getElementById("progressStats").textContent = `${d.sent ?? 0} terkirim · ${d.failed ?? 0} gagal`;
-      const el = document.getElementById("results");
-      el.innerHTML = (d.results || []).slice().reverse().map(r =>
-        `<div class="result-row"><span class="phone">${escHtml(r.phone)}</span><span class="result-${r.status}">${r.status}${r.error ? ' - ' + escHtml(r.error) : ''}</span></div>`
-      ).join("");
-      if (["done", "cancelled", "error_stopped", "banned"].includes(d.status)) {
-        clearInterval(pollInterval);
-        document.getElementById("blastBtn").style.display = "inline-flex";
-        document.getElementById("cancelBtn").style.display = "none";
-        document.getElementById("clearBtn").disabled = false;
-        if (d.status === "done") document.getElementById("progressFill").style.width = "100%";
-        if (d.status === "error_stopped") document.getElementById("progressStats").textContent += " (stopped: too many errors)";
-        if (d.status === "banned") document.getElementById("progressStats").textContent += " (stopped: number banned)";
-      }
-    }
-
-    async function cancelBlast() {
-      await fetch("/api/cancel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId: blastSessionId }) });
-    }
-
-    async function clearAll() {
-      if (uploadId) await fetch("/api/clear", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ uploadId }) });
-      uploadId = null;
-      contactCount = 0; columns = [];
-      document.getElementById("uploadArea").className = "upload-area";
-      document.getElementById("uploadArea").innerHTML = '<p style="color:#666">Klik atau drag file CSV / Excel (.xlsx)</p><p style="color:#444;font-size:12px;margin-top:4px">Harus ada kolom phone/hp/wa/nomor</p>';
-      document.getElementById("uploadResult").innerHTML = "";
-      document.getElementById("columnTags").innerHTML = "";
-      document.getElementById("template").value = "";
-      document.getElementById("previewArea").innerHTML = "";
-      document.getElementById("progressWrap").style.display = "none";
-      document.getElementById("results").innerHTML = "";
-      document.getElementById("previewBtn").disabled = true;
-      document.getElementById("blastBtn").disabled = true;
-      document.getElementById("fileInput").value = "";
-      ["step1","step2","step3"].forEach(s => document.getElementById(s).className = "step-num");
-    }
-
-    // ─── Chats ───
+    // ─── Percakapan ───
     async function loadChats() {
-      const sessionId = document.getElementById("chatSessionSelect").value;
-      const el = document.getElementById("chatsList");
+      const sessionId = $("chatSessionSelect").value;
+      const wrap = $("chatsWrap");
+      activeChat = null;
       if (!sessionId) {
-        el.innerHTML = '<div class="empty-state">Pilih session untuk melihat percakapan</div>';
+        wrap.innerHTML = `<div class="card">${emptyState(ICON.chat, "Pilih nomor dulu", "Pilih nomor di atas untuk melihat percakapannya.")}</div>`;
         return;
       }
-      el.innerHTML = '<div class="empty-state">Loading...</div>';
+      wrap.innerHTML = `<div class="card"><p class="hint">Memuat percakapan...</p></div>`;
       try {
-        const r = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/chats?limit=50`);
-        const chats = await r.json();
+        const chats = await api(`/api/sessions/${encodeURIComponent(sessionId)}/chats?limit=100`);
         if (!chats.length) {
-          el.innerHTML = '<div class="empty-state">Belum ada percakapan</div>';
+          wrap.innerHTML = `<div class="card">${emptyState(ICON.chat, "Belum ada percakapan", "Percakapan muncul setelah ada pesan yang dikirim dari sini atau balasan yang masuk.")}</div>`;
           return;
         }
-        el.innerHTML = chats.map(c => {
-          const jidDisplay = c.jid.replace(/@s\.whatsapp\.net$/, "");
-          const phone = jidDisplay.startsWith("62") ? "+" + jidDisplay : jidDisplay;
-          const time = c.last_message_at ? formatTime(c.last_message_at) : "";
-          return `<div class="chat-item" onclick="toggleChat(this, '${escHtml(sessionId)}', '${escHtml(c.jid)}')" data-jid="${escHtml(c.jid)}">
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <span class="chat-jid">${escHtml(phone)}</span>
-              <span class="chat-time">${escHtml(time)}</span>
-            </div>
-            <div class="chat-stats">${c.sent_count} sent · ${c.received_count} received${c.read_count > 0 ? ` · ${c.read_count} read` : ''}${c.delivered_count > 0 ? ` · ${c.delivered_count} delivered` : ''}</div>
-            <div class="chat-messages" style="display:none"></div>
-          </div>`;
-        }).join("");
+        wrap.innerHTML = `<div class="chat-layout">
+          <div class="chat-list" aria-label="Daftar percakapan">${chats.map((c) => `<button type="button" class="chat-item" data-action="chat-open" data-jid="${esc(c.jid)}">
+            <span class="row1"><span class="num">${esc(jidPhone(c.jid))}</span><time>${esc(formatTime(c.last_message_at))}</time></span>
+            <span class="row2">${c.sent_count} dikirim, ${c.received_count} balasan${c.read_count ? `, ${c.read_count} dibaca` : ""}</span>
+          </button>`).join("")}</div>
+          <div class="chat-pane" id="chatPane">${emptyState(ICON.chat, "Pilih percakapan", "Klik salah satu nomor di daftar untuk melihat pesannya.")}</div>
+        </div>`;
       } catch (err) {
-        el.innerHTML = `<div class="empty-state" style="color:#ef4444">${escHtml(err.message)}</div>`;
+        wrap.innerHTML = `<div class="card"><div class="alert alert-warn" role="alert">${esc(err.message)}</div></div>`;
       }
     }
 
-    async function toggleChat(el, sessionId, jid) {
-      const msgEl = el.querySelector('.chat-messages');
-      if (el.classList.contains('active')) {
-        el.classList.remove('active');
-        msgEl.style.display = 'none';
-        msgEl.innerHTML = '';
-        return;
-      }
-      document.querySelectorAll('.chat-item').forEach(c => {
-        c.classList.remove('active');
-        c.querySelector('.chat-messages').style.display = 'none';
-        c.querySelector('.chat-messages').innerHTML = '';
-      });
-      el.classList.add('active');
-      msgEl.style.display = 'block';
-      msgEl.innerHTML = '<div style="padding:12px;color:#666;font-size:13px">Loading...</div>';
-      await loadMessages(sessionId, jid, msgEl, 50, 0);
-    }
+    const renderMsg = (m) => {
+      const out = m.direction === "outgoing";
+      return `<div class="msg ${out ? "msg-out" : "msg-in"}">` +
+        (!out && m.sender_name ? `<div class="msg-sender">${esc(m.sender_name)}</div>` : "") +
+        `<div class="msg-text">${esc(m.content || "")}</div>` +
+        `<div class="msg-meta">${esc(formatTime(m.created_at))}${out ? " · " + esc(ITEM_LABEL[m.status] || m.status) : ""}</div></div>`;
+    };
 
-    async function loadMessages(sessionId, jid, container, limit, offset) {
+    async function openChat(btn) {
+      const sessionId = $("chatSessionSelect").value;
+      const jid = btn.dataset.jid;
+      document.querySelectorAll(".chat-item").forEach((c) => c.classList.toggle("active", c === btn));
+      activeChat = { sessionId, jid, offset: 0 };
+      const pane = $("chatPane");
+      pane.innerHTML = `<div class="chat-pane-head"><span class="num">${esc(jidPhone(jid))}</span></div><div class="chat-msgs" id="chatMsgs"><p class="hint">Memuat pesan...</p></div>`;
       try {
-        const r = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/chats/${encodeURIComponent(jid)}/messages?limit=${limit}&offset=${offset}`);
-        const msgs = await r.json();
-        let html = '<div class="messages-container">';
-        const reversed = msgs.slice().reverse();
-        for (const m of reversed) {
-          const isOut = m.direction === 'outgoing';
-          const statusIcon = isOut ? getStatusIcon(m.status) : '';
-          const senderHtml = (!isOut && m.sender_name) ? `<div class="msg-sender">${escHtml(m.sender_name)}</div>` : '';
-          html += `<div class="msg-bubble ${isOut ? 'msg-out' : 'msg-in'}">
-            ${senderHtml}
-            ${escHtml(m.content || '')}
-            <div class="msg-meta">
-              <span>${formatTime(m.created_at)}</span>
-              ${statusIcon ? `<span class="msg-status ${m.status}">${statusIcon}</span>` : ''}
-            </div>
-          </div>`;
-        }
-        html += '</div>';
-        if (msgs.length >= limit) {
-          html += `<div class="load-more-btn"><button class="btn btn-ghost btn-sm" onclick="loadMoreMessages(this, '${escHtml(sessionId)}', '${escHtml(jid)}', ${offset + limit})">Load more</button></div>`;
-        }
-        container.innerHTML = html;
+        const msgs = await api(`/api/sessions/${encodeURIComponent(sessionId)}/chats/${encodeURIComponent(jid)}/messages?limit=50&offset=0`);
+        activeChat.offset = msgs.length;
+        const box = $("chatMsgs");
+        box.innerHTML = (msgs.length >= 50 ? `<button type="button" class="btn btn-outline" data-action="chat-more" style="align-self:center">Muat pesan sebelumnya</button>` : "") + msgs.slice().reverse().map(renderMsg).join("");
+        box.scrollTop = box.scrollHeight;
       } catch (err) {
-        container.innerHTML = `<div style="padding:12px;color:#ef4444;font-size:13px">${escHtml(err.message)}</div>`;
+        $("chatMsgs").innerHTML = `<div class="alert alert-warn" role="alert">${esc(err.message)}</div>`;
       }
     }
 
-    async function loadMoreMessages(btn, sessionId, jid, offset) {
+    async function loadMoreMsgs(btn) {
+      if (!activeChat) return;
       btn.disabled = true;
-      btn.textContent = "Loading...";
       try {
-        const r = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/chats/${encodeURIComponent(jid)}/messages?limit=50&offset=${offset}`);
-        const msgs = await r.json();
-        const container = btn.closest('.chat-messages').querySelector('.messages-container');
-        const reversed = msgs.slice().reverse();
-        let html = '';
-        for (const m of reversed) {
-          const isOut = m.direction === 'outgoing';
-          const statusIcon = isOut ? getStatusIcon(m.status) : '';
-          const senderHtml = (!isOut && m.sender_name) ? `<div class="msg-sender">${escHtml(m.sender_name)}</div>` : '';
-          html = `<div class="msg-bubble ${isOut ? 'msg-out' : 'msg-in'}">
-            ${senderHtml}
-            ${escHtml(m.content || '')}
-            <div class="msg-meta">
-              <span>${formatTime(m.created_at)}</span>
-              ${statusIcon ? `<span class="msg-status ${m.status}">${statusIcon}</span>` : ''}
-            </div>
-          </div>` + html;
-        }
-        container.insertAdjacentHTML('afterbegin', html);
-        if (msgs.length >= 50) {
-          btn.disabled = false;
-          btn.textContent = "Load more";
-          btn.onclick = () => loadMoreMessages(btn, sessionId, jid, offset + 50);
-        } else {
-          btn.parentElement.remove();
-        }
-      } catch { btn.disabled = false; btn.textContent = "Load more"; }
-    }
-
-    function getStatusIcon(status) {
-      switch (status) {
-        case 'pending': return '⌛';
-        case 'sent': return '✓';
-        case 'delivered': return '✓✓';
-        case 'read': return '✓✓';
-        case 'failed': return '✗';
-        default: return '';
+        const msgs = await api(`/api/sessions/${encodeURIComponent(activeChat.sessionId)}/chats/${encodeURIComponent(activeChat.jid)}/messages?limit=50&offset=${activeChat.offset}`);
+        activeChat.offset += msgs.length;
+        btn.insertAdjacentHTML("afterend", msgs.slice().reverse().map(renderMsg).join(""));
+        if (msgs.length < 50) btn.remove(); else btn.disabled = false;
+      } catch (err) {
+        toast(err.message, "error");
+        btn.disabled = false;
       }
     }
 
-    function formatTime(ts) {
-      if (!ts) return '';
-      const d = new Date(ts.endsWith('Z') ? ts : ts + 'Z');
-      if (isNaN(d)) return ts;
-      const now = new Date();
-      const isToday = d.toDateString() === now.toDateString();
-      const time = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-      if (isToday) return time;
-      return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' ' + time;
-    }
-
-    // ─── History ───
-    const HISTORY_PAGE = 200;
-    const expandedHistory = new Set();
-
-    function parseTs(ts) {
-      if (!ts) return null;
-      const d = new Date(ts.endsWith('Z') ? ts : ts + 'Z');
-      return isNaN(d) ? null : d;
-    }
-
-    function formatDateTime(ts) {
-      const d = parseTs(ts);
-      if (!d) return ts || '';
-      return d.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    }
-
-    function formatClock(ts) {
-      const d = parseTs(ts);
-      if (!d) return ts || '';
-      return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    }
-
-    function formatDuration(start, end) {
-      const a = parseTs(start), b = parseTs(end);
-      if (!a || !b || b < a) return '';
-      const s = Math.round((b - a) / 1000);
-      if (s < 60) return `${s} dtk`;
-      const m = Math.floor(s / 60);
-      if (m < 60) return `${m} mnt ${s % 60} dtk`;
-      return `${Math.floor(m / 60)} jam ${m % 60} mnt`;
-    }
-
+    // ─── Riwayat ───
     function renderHistoryCard(j) {
-      const total = j.total || 0;
-      const pct = n => total > 0 ? ((n || 0) / total * 100) : 0;
-      const sentPct = pct(j.sent), failedPct = pct(j.failed), deliveredPct = pct(j.delivered), readPct = pct(j.read_count);
       const start = parseTs(j.started_at), end = parseTs(j.finished_at);
       const sameDay = start && end && start.toDateString() === end.toDateString();
       const duration = formatDuration(j.started_at, j.finished_at);
-      const endText = j.finished_at ? ` - ${sameDay ? formatClock(j.finished_at) : formatDateTime(j.finished_at)}` : '';
-      return `<div class="history-card" data-id="${escHtml(j.id)}">
-        <div class="history-header" onclick="toggleHistory(this.parentElement)">
-          <div>
-            <span class="history-type">${j.type === 'quick' ? 'Quick Send' : 'Blast'}</span>
-            <span class="history-sender">${escHtml(j.session_name || j.session_id)}${j.session_phone ? `<small>+${escHtml(j.session_phone)}</small>` : ''}</span>
-          </div>
-          <span class="history-status ${escHtml(j.status)}">${escHtml(j.status)}</span>
-        </div>
-        <div class="history-time">${escHtml(formatDateTime(j.started_at))}${escHtml(endText)}${duration ? ` (${duration})` : ''}</div>
-        <div class="history-stats">
-          <span>Total: ${total}</span>
-          <span style="color:#22c55e">Sent: ${j.sent || 0}</span>
-          <span style="color:#ef4444">Failed: ${j.failed || 0}</span>
-          ${j.skipped ? `<span style="color:#eab308">Skipped: ${j.skipped}</span>` : ''}
-          ${j.delivered ? `<span style="color:#3b82f6">Delivered: ${j.delivered}</span>` : ''}
-          ${j.read_count ? `<span style="color:#8b5cf6">Read: ${j.read_count}</span>` : ''}
-        </div>
-        <div class="delivery-bar">
-          <div class="read-seg" style="width:${readPct}%"></div>
-          <div class="delivered" style="width:${deliveredPct}%"></div>
-          <div class="sent" style="width:${Math.max(0, sentPct - deliveredPct - readPct)}%"></div>
-          <div class="failed" style="width:${failedPct}%"></div>
-        </div>
-        <div class="delivery-legend">
-          <span class="l-sent">Sent</span>
-          <span class="l-delivered">Delivered</span>
-          <span class="l-read">Read</span>
-          <span class="l-failed">Failed</span>
-        </div>
-        <div class="history-toggle" onclick="toggleHistory(this.parentElement)">▸ Detail</div>
-        <div class="history-detail" style="display:none"></div>
+      const when = formatDateTime(j.started_at) + (j.finished_at ? ` sampai ${sameDay ? formatClock(j.finished_at) : formatDateTime(j.finished_at)}` : "") + (duration ? ` (${duration})` : "");
+      const sender = (j.session_name || j.session_id) + (j.session_phone ? ` (+${j.session_phone})` : "");
+      return `<div class="card history-card" data-id="${esc(j.id)}">
+        <button type="button" class="history-head" data-action="history-toggle" aria-expanded="false">
+          <span class="history-top">
+            <span>
+              <span class="history-title">${j.type === "quick" ? "Kirim Cepat" : "Kirim Pesan"} dari ${esc(sender)}</span><br>
+              <span class="history-time">${esc(when)}</span>
+            </span>
+            ${badge(JOB_LABEL[j.status] || j.status, JOB_BADGE[j.status])}
+          </span>
+          <span class="history-stats">
+            ${badge(`${j.total || 0} tujuan`)}
+            ${badge(`${j.sent || 0} terkirim`, "success")}
+            ${j.delivered ? badge(`${j.delivered} diterima`, "info") : ""}
+            ${j.read_count ? badge(`${j.read_count} dibaca`, "read") : ""}
+            ${j.failed ? badge(`${j.failed} gagal`, "danger") : ""}
+            ${j.skipped ? badge(`${j.skipped} dilewati`, "warn") : ""}
+          </span>
+          <span class="history-more"><span class="history-more-text">Lihat pesan dan daftar penerima</span>${ICON.chevron}</span>
+        </button>
+        <div class="history-detail" hidden></div>
       </div>`;
     }
 
     function renderHistoryItem(i, type) {
-      const status = i.status === 'sent' && ['delivered', 'read'].includes(i.delivery_status) ? i.delivery_status : i.status;
-      return `<div class="history-item">
-        <div class="history-item-row">
-          <span class="history-item-time" title="${escHtml(formatDateTime(i.created_at))}">${escHtml(formatClock(i.created_at))}</span>
-          <span class="history-item-phone">${escHtml(i.phone || '?')}</span>
-          <span class="result-${escHtml(status)}">${escHtml(status)}${i.error ? ' - ' + escHtml(i.error) : ''}</span>
+      const status = i.status === "sent" && ["delivered", "read"].includes(i.delivery_status) ? i.delivery_status : i.status;
+      return `<div class="item-row">
+        <div class="item-main">
+          <span class="item-time" title="${esc(formatDateTime(i.created_at))}">${esc(formatClock(i.created_at))}</span>
+          <span class="item-phone num">${esc(i.phone || "?")}</span>
+          ${badge(ITEM_LABEL[status] || status, ITEM_BADGE[status])}
         </div>
-        ${type === 'blast' && i.content ? `<div class="history-item-msg" title="${escHtml(i.content)}">${escHtml(i.content)}</div>` : ''}
+        ${i.error ? `<div class="item-sub">${esc(friendlyError(i.error))}</div>` : ""}
+        ${type === "blast" && i.content ? `<div class="item-sub" title="${esc(i.content)}">${esc(i.content)}</div>` : ""}
       </div>`;
     }
 
     async function loadHistory() {
-      const el = document.getElementById("historyList");
+      const el = $("historyList");
       try {
-        const r = await fetch("/api/history?limit=50");
-        const jobs = await r.json();
-        if (!r.ok) throw new Error(jobs.error || "Gagal memuat history");
+        const jobs = await api("/api/history?limit=50");
         if (!jobs.length) {
-          el.innerHTML = '<div class="empty-state">Belum ada history pengiriman</div>';
+          el.innerHTML = `<div class="card">${emptyState(ICON.clock, "Belum ada riwayat", "Setiap pengiriman akan tercatat di sini, lengkap dengan waktu dan daftar penerimanya.", `<button type="button" class="btn btn-primary" data-goto="kirim">Kirim pesan pertama</button>`)}</div>`;
           return;
         }
         el.innerHTML = jobs.map(renderHistoryCard).join("");
         for (const id of [...expandedHistory]) {
           const card = el.querySelector(`.history-card[data-id="${CSS.escape(id)}"]`);
-          if (card) openHistoryDetail(card);
-          else expandedHistory.delete(id);
+          if (card) openHistoryDetail(card); else expandedHistory.delete(id);
         }
       } catch (err) {
-        el.innerHTML = `<div class="empty-state" style="color:#ef4444">${escHtml(err.message)}</div>`;
+        el.innerHTML = `<div class="card"><div class="alert alert-warn" role="alert">${esc(err.message)}</div></div>`;
       }
     }
 
     function toggleHistory(card) {
       const id = card.dataset.id;
-      if (!expandedHistory.has(id)) {
-        expandedHistory.add(id);
-        return openHistoryDetail(card);
-      }
+      if (!expandedHistory.has(id)) { expandedHistory.add(id); return openHistoryDetail(card); }
       expandedHistory.delete(id);
-      const detail = card.querySelector('.history-detail');
-      detail.style.display = 'none';
-      detail.innerHTML = '';
-      card.querySelector('.history-toggle').textContent = '▸ Detail';
+      card.classList.remove("open");
+      card.querySelector(".history-head").setAttribute("aria-expanded", "false");
+      card.querySelector(".history-more-text").textContent = "Lihat pesan dan daftar penerima";
+      const detail = card.querySelector(".history-detail");
+      detail.hidden = true;
+      detail.innerHTML = "";
     }
 
     async function openHistoryDetail(card) {
-      const detail = card.querySelector('.history-detail');
-      card.querySelector('.history-toggle').textContent = '▾ Detail';
-      detail.style.display = 'block';
-      detail.innerHTML = '<div style="color:#666;font-size:13px">Loading...</div>';
+      const detail = card.querySelector(".history-detail");
+      card.classList.add("open");
+      card.querySelector(".history-head").setAttribute("aria-expanded", "true");
+      card.querySelector(".history-more-text").textContent = "Sembunyikan";
+      detail.hidden = false;
+      detail.innerHTML = `<p class="hint">Memuat...</p>`;
       try {
-        const r = await fetch(`/api/history/${encodeURIComponent(card.dataset.id)}?limit=${HISTORY_PAGE}`);
-        const d = await r.json();
-        if (!r.ok) throw new Error(d.error || "Gagal memuat detail");
-        const items = d.items.map(i => renderHistoryItem(i, d.job.type)).join("");
+        const d = await api(`/api/history/${encodeURIComponent(card.dataset.id)}?limit=${HISTORY_PAGE}`);
+        const items = d.items.map((i) => renderHistoryItem(i, d.job.type)).join("");
         detail.innerHTML = `
-          <div class="preview-label">${d.job.type === 'blast' ? 'Template' : 'Pesan'}</div>
-          <div class="preview-box" style="margin-top:0">${escHtml(d.job.template || '')}</div>
-          <div class="preview-label" style="margin-top:12px">Dikirim ke (${d.job.total})</div>
-          <div class="history-items" data-type="${escHtml(d.job.type)}">${items || '<div style="padding:8px 0;color:#666">Belum ada penerima</div>'}</div>
-          ${d.items.length >= HISTORY_PAGE ? `<div class="load-more-btn"><button class="btn btn-ghost btn-sm" data-offset="${HISTORY_PAGE}" onclick="loadMoreHistoryItems(this)">Load more</button></div>` : ''}`;
+          <p class="label">Isi pesan</p>
+          <div class="msg-box">${esc(d.job.template || "")}</div>
+          <p class="label" style="margin-top:16px">Dikirim ke (${d.job.total})</p>
+          <div class="item-list" data-type="${esc(d.job.type)}">${items || `<div class="item-row hint">Belum ada penerima yang diproses.</div>`}</div>
+          ${d.items.length >= HISTORY_PAGE ? `<button type="button" class="btn btn-outline" data-action="history-more" data-offset="${HISTORY_PAGE}" style="margin-top:12px">Tampilkan lebih banyak</button>` : ""}`;
       } catch (err) {
-        detail.innerHTML = `<div style="color:#ef4444;font-size:13px">${escHtml(err.message)}</div>`;
+        detail.innerHTML = `<div class="alert alert-warn" role="alert">${esc(err.message)}</div>`;
       }
     }
 
     async function loadMoreHistoryItems(btn) {
-      const card = btn.closest('.history-card');
-      const list = card.querySelector('.history-items');
+      const card = btn.closest(".history-card");
+      const list = card.querySelector(".item-list");
       const offset = Number(btn.dataset.offset);
       btn.disabled = true;
       try {
-        const r = await fetch(`/api/history/${encodeURIComponent(card.dataset.id)}?limit=${HISTORY_PAGE}&offset=${offset}`);
-        const d = await r.json();
-        if (!r.ok) throw new Error(d.error || "Gagal memuat detail");
-        list.insertAdjacentHTML('beforeend', d.items.map(i => renderHistoryItem(i, list.dataset.type)).join(""));
-        if (d.items.length >= HISTORY_PAGE) {
-          btn.dataset.offset = offset + HISTORY_PAGE;
-          btn.disabled = false;
-        } else {
-          btn.parentElement.remove();
-        }
-      } catch { btn.disabled = false; }
+        const d = await api(`/api/history/${encodeURIComponent(card.dataset.id)}?limit=${HISTORY_PAGE}&offset=${offset}`);
+        list.insertAdjacentHTML("beforeend", d.items.map((i) => renderHistoryItem(i, list.dataset.type)).join(""));
+        if (d.items.length >= HISTORY_PAGE) { btn.dataset.offset = offset + HISTORY_PAGE; btn.disabled = false; }
+        else btn.remove();
+      } catch (err) {
+        toast(err.message, "error");
+        btn.disabled = false;
+      }
     }
 
-    // ─── Init ───
-    refreshSessions();
-    sessionPollInterval = setInterval(refreshSessions, 5000);
+    // ─── Bantuan ───
+    function filterFaq() {
+      const q = $("faqSearch").value.trim().toLowerCase();
+      let shown = 0;
+      document.querySelectorAll("#faq details").forEach((d) => {
+        const match = !q || d.textContent.toLowerCase().includes(q);
+        d.hidden = !match;
+        if (match) shown++;
+      });
+      document.querySelectorAll("#faq h2").forEach((h) => {
+        let el = h.nextElementSibling, any = false;
+        while (el && el.tagName === "DETAILS") { if (!el.hidden) any = true; el = el.nextElementSibling; }
+        h.hidden = !any;
+      });
+      $("faqEmpty").hidden = shown > 0;
+    }
 
-    // Drag & drop
-    const area = document.getElementById("uploadArea");
-    area.addEventListener("dragover", e => { e.preventDefault(); area.style.borderColor = "#555"; });
-    area.addEventListener("dragleave", () => { area.style.borderColor = "#333"; });
-    area.addEventListener("drop", e => {
-      e.preventDefault(); area.style.borderColor = "#333";
-      const file = e.dataTransfer.files[0];
-      if (file) { const input = document.getElementById("fileInput"); const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files; uploadFile(input); }
+    // ─── Events ───
+    document.addEventListener("click", (e) => {
+      const go = e.target.closest("[data-goto]");
+      if (go) { if (go.closest(".modal")) closeModal(false); showPage(go.dataset.goto); return; }
+      const el = e.target.closest("[data-action]");
+      if (!el) return;
+      const card = el.closest("[data-id]");
+      switch (el.dataset.action) {
+        case "modal-backdrop": if (e.target === el) closeModal(false); break;
+        case "modal-cancel": closeModal(false); break;
+        case "modal-confirm": closeModal(true); break;
+        case "result-history": closeModal(false); showPage("riwayat"); break;
+        case "goto-step": if (!el.disabled) setStep(Number(el.dataset.step)); break;
+        case "wizard-back": if (wizard.step > 1) setStep(wizard.step - 1); break;
+        case "wizard-next": wizardNext(); break;
+        case "insert-var": insertVar(el.dataset.col); break;
+        case "pick-file": $("fileInput").click(); break;
+        case "sample-file": downloadSample(); break;
+        case "blast-stop": stopBlast(); break;
+        case "blast-new": newBlast(); break;
+        case "pair-toggle": { const box = card.querySelector(".pair-box"); box.hidden = !box.hidden; if (!box.hidden) box.querySelector("input").focus(); break; }
+        case "pair-request": requestPair(card, el); break;
+        case "session-remove": removeSession(card); break;
+        case "chat-open": openChat(el); break;
+        case "chat-more": loadMoreMsgs(el); break;
+        case "history-refresh": loadHistory().then(() => toast("Riwayat dimuat ulang.")); break;
+        case "history-toggle": toggleHistory(card); break;
+        case "history-more": loadMoreHistoryItems(el); break;
+      }
     });
+    document.addEventListener("change", (e) => {
+      if (e.target.name === "sender") { wizard.sessionId = e.target.value; updateWizard(); }
+      if (e.target.id === "fileInput") handleFile(e.target.files[0]);
+      if (e.target.id === "chatSessionSelect") loadChats();
+    });
+    $("template").addEventListener("input", onTemplateInput);
+    $("delayMin").addEventListener("input", renderReview);
+    $("delayMax").addEventListener("input", renderReview);
+    $("addSessionForm").addEventListener("submit", addSession);
+    $("quickForm").addEventListener("submit", quickSend);
+    $("faqSearch").addEventListener("input", filterFaq);
+    const dz = $("dropzone");
+    dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("drag"); });
+    dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
+    dz.addEventListener("drop", (e) => { e.preventDefault(); dz.classList.remove("drag"); handleFile(e.dataTransfer.files[0]); });
+
+    // ─── Init ───
+    renderChips();
+    renderSenders();
+    renderSessions();
+    populateSelects();
+    showPage(location.hash.slice(1) || "kirim", { focus: false, replace: true });
+    refreshSessions();
+    setInterval(refreshSessions, 5000);
   </script>
 </body>
 </html>
