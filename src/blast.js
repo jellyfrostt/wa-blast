@@ -139,7 +139,7 @@ function saveLog(job, logger) {
 
 export function startBlast(sessionId, contacts, template, delayMin, delayMax, logger) {
   if (jobs.get(sessionId)?.status === "running") {
-    throw new Error("Blast sedang berjalan di session ini");
+    throw new Error("Nomor ini masih mengirim pesan lain. Tunggu sampai selesai atau hentikan dulu.");
   }
 
   if (!getConnectedSocket(sessionId)) {
