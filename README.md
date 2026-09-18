@@ -22,7 +22,7 @@ src/
   history.js      Send history recorder (jobs + per-recipient items)
   phone.js        Phone number formatting (ID format)
   public/
-    index.html    Single-page frontend (5 tabs, vanilla JS)
+    index.html    Single-page frontend (sidebar dashboard, vanilla JS)
 ```
 
 ### Multi-Session Design
@@ -130,13 +130,14 @@ All send endpoints accept optional `sessionId`. If omitted, uses the first conne
 
 ## Frontend
 
-5-tab interface:
+Sidebar dashboard in plain Indonesian, aimed at non-technical users. Pages are deep-linkable (`#kirim`, `#nomor`, `#cepat`, `#percakapan`, `#riwayat`, `#bantuan`).
 
-1. **Sessions** — add/remove WhatsApp connections, scan QR, pair code
-2. **Quick Send** — send messages to single number with session selector
-3. **Bulk Import** — upload contacts, compose template, blast with session selector
-4. **Chats** — view conversations per session, message bubbles with read status
-5. **History** — every blast and quick send with sender session, start/finish time and delivery breakdown; expand a card to see the message and each recipient's status and time
+1. **Kirim Pesan** - guided 5-step blast: pick sender number, write message, upload contacts, review with preview, then send with live progress, a confirmation before sending and a result dialog when done. Reopening the page re-attaches to a blast that is still running.
+2. **Nomor WhatsApp** - add/remove WhatsApp numbers, scan QR with step-by-step instructions, or use a pairing code
+3. **Kirim Cepat** - send a message to a single number
+4. **Percakapan** - read-only conversations per number with delivery status
+5. **Riwayat** - every blast and quick send with sender, start/finish time and delivery breakdown; expand a card to see the message and each recipient
+6. **Bantuan** - getting-started guide and searchable FAQ
 
 ## Reliability Features
 
