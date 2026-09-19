@@ -87,7 +87,8 @@ Status updates come from Baileys `messages.update` event (status enum: 2=sent, 3
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/sessions` | Create new session `{name}` |
+| POST | `/api/sessions` | Create new session `{name}` (refused once `MAX_SESSIONS` is reached) |
+| GET | `/api/limits` | Configured limits `{maxSessions}` |
 | GET | `/api/sessions` | List all sessions |
 | GET | `/api/sessions/:id` | Session detail + connection log |
 | DELETE | `/api/sessions/:id` | Remove session (logout + clear auth) |
@@ -205,6 +206,7 @@ docker run -p 3001:3001 \
 | `PORT` | `3001` | Server port |
 | `LOG_LEVEL` | `info` | Pino log level (debug, info, warn, error) |
 | `DB_PATH` | `./data/wa-blast.db` | SQLite database file path |
+| `MAX_SESSIONS` | `10` | Maximum WhatsApp numbers that can be added; the dashboard shows this limit |
 
 ### Railway
 
