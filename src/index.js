@@ -19,6 +19,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 app.use(express.json());
 app.use(express.static(join(__dirname, "public")));
 
+const MAX_SESSIONS = Math.max(1, parseInt(process.env.MAX_SESSIONS) || 10);
 const UPLOAD_TTL_MS = 24 * 60 * 60 * 1000;
 const uploads = new Map();
 let lastUploadId = null;
@@ -74,9 +75,16 @@ app.get("/qr", (_req, res) => {
 
 // ─── Session management ──────────────────────────────────────────────────
 
+app.get("/api/limits", (_req, res) => {
+  res.json({ maxSessions: MAX_SESSIONS });
+});
+
 app.post("/api/sessions", async (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ error: "name wajib diisi" });
+  if (getAllSessionsList().length >= MAX_SESSIONS) {
+    return res.status(400).json({ error: `Sudah mencapai batas ${MAX_SESSIONS} nomor. Hapus dulu nomor yang tidak dipakai.` });
+  }
   const id = `s_${Date.now()}`;
   try {
     const session = await createSession(id, name, logger);
