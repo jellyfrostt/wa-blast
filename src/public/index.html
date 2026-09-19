@@ -45,8 +45,6 @@
     .nav-item svg { width: 20px; height: 20px; flex-shrink: 0; }
     .nav-item:hover { background: var(--c-muted); color: var(--c-fg); }
     .nav-item.active { background: var(--c-primary-soft); color: var(--c-primary); font-weight: 600; }
-    .nav-count { margin-left: auto; font-size: 12px; font-weight: 600; background: var(--c-muted); color: var(--c-muted-fg); border-radius: 999px; padding: 1px 8px; }
-    .nav-item.active .nav-count { background: #fff; color: var(--c-primary); }
     .sidebar-foot { margin-top: auto; padding: 12px; border: 1px solid var(--c-border); border-radius: 8px; font-size: 14px; color: var(--c-muted-fg); display: flex; gap: 10px; align-items: center; }
     .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: var(--c-faint); }
     .dot.ok { background: #059669; } .dot.warn { background: #D97706; } .dot.down { background: var(--c-danger); }
@@ -307,7 +305,7 @@
       </div>
       <nav class="nav" aria-label="Menu utama">
         <button class="nav-item active" data-goto="kirim"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>Kirim Pesan</button>
-        <button class="nav-item" data-goto="nomor"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/></svg>Nomor WhatsApp<span class="nav-count" id="navCount" hidden></span></button>
+        <button class="nav-item" data-goto="nomor"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/></svg>Nomor WhatsApp</button>
         <button class="nav-item" data-goto="cepat"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>Kirim Cepat</button>
         <button class="nav-item" data-goto="percakapan"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Percakapan</button>
         <button class="nav-item" data-goto="riwayat"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Riwayat</button>
@@ -422,6 +420,7 @@
           <header class="page-head">
             <h1 tabindex="-1">Nomor WhatsApp</h1>
             <p>Hubungkan nomor WhatsApp yang akan dipakai untuk mengirim pesan. Caranya sama seperti membuka WhatsApp Web: scan kode QR dari HP.</p>
+            <p id="numbersSummary" style="margin-top:12px" role="status"></p>
           </header>
           <div class="card">
             <h2>Tambah nomor</h2>
@@ -526,7 +525,7 @@
             <details><summary>Bagaimana cara menghubungkan nomor WhatsApp?</summary><div class="answer"><ol><li>Buka menu <strong>Nomor WhatsApp</strong>, isi nama, lalu klik <strong>Tambah nomor</strong>.</li><li>Di HP, buka WhatsApp lalu masuk ke <strong>Perangkat tertaut</strong> (ada di menu titik tiga atau Setelan).</li><li>Ketuk <strong>Tautkan perangkat</strong> dan arahkan kamera ke kode QR di layar.</li><li>Tunggu sampai statusnya berubah menjadi <strong>Terhubung</strong>.</li></ol></div></details>
             <details><summary>Kamera HP saya tidak bisa scan kode QR. Ada cara lain?</summary><div class="answer"><p>Ada. Di kartu nomor tersebut klik <strong>Pakai kode</strong>, isi nomor HP-nya, lalu klik <strong>Minta kode</strong>. Di HP, pada layar Tautkan perangkat pilih <strong>Tautkan dengan nomor telepon</strong> dan masukkan kode yang muncul.</p></div></details>
             <details><summary>Status nomor saya "Terputus" atau "Menunggu scan QR". Harus bagaimana?</summary><div class="answer"><p>Kalau koneksi putus sebentar, sistem mencoba menyambung lagi sendiri sampai 8 kali. Kalau statusnya <strong>Menunggu scan QR</strong>, berarti nomor perlu dihubungkan ulang: scan kode QR yang muncul di menu Nomor WhatsApp.</p><p>Nomor juga bisa terputus kalau dikeluarkan dari daftar Perangkat tertaut di HP.</p></div></details>
-            <details><summary>Bisakah menghubungkan lebih dari satu nomor?</summary><div class="answer"><p>Bisa. Tambahkan nomor satu per satu di menu Nomor WhatsApp. Saat mengirim, kamu tinggal memilih mau kirim dari nomor yang mana.</p></div></details>
+            <details><summary>Bisakah menghubungkan lebih dari satu nomor?</summary><div class="answer"><p>Bisa, sampai <strong><span class="js-max">10</span> nomor</strong>. Tambahkan satu per satu di menu Nomor WhatsApp. Saat mengirim, kamu tinggal memilih mau kirim dari nomor yang mana.</p><p>Kalau sudah penuh, hapus dulu nomor yang tidak dipakai. Batas ini bisa dinaikkan oleh admin aplikasi.</p></div></details>
 
             <h2>File kontak dan isi pesan</h2>
             <details><summary>File kontak seperti apa yang bisa dipakai?</summary><div class="answer"><ul><li>File Excel (.xlsx atau .xls) atau CSV, ukuran paling besar 10 MB.</li><li>Baris pertama berisi judul kolom, misalnya <span class="mono">nama</span> dan <span class="mono">phone</span>.</li><li>Harus ada satu kolom berisi nomor HP. Judul kolomnya boleh <span class="mono">phone</span>, <span class="mono">hp</span>, <span class="mono">wa</span>, <span class="mono">nomor</span>, <span class="mono">telepon</span>, dan sejenisnya.</li><li>Kalau filenya Excel dengan beberapa sheet, yang dibaca hanya sheet pertama.</li></ul><p><button type="button" class="btn-link" data-action="sample-file">Unduh contoh file</button></p></div></details>
@@ -538,7 +537,7 @@
             <details><summary>Kenapa pengirimannya lama?</summary><div class="answer"><p>Sengaja diberi jeda beberapa detik di antara tiap pesan (biasanya 3-7 detik) supaya nomor tidak dianggap spam dan diblokir WhatsApp. Untuk 100 kontak kira-kira butuh 8-10 menit.</p></div></details>
             <details><summary>Bolehkah halaman ditutup saat pengiriman berjalan?</summary><div class="answer"><p>Boleh untuk menu <strong>Kirim Pesan</strong>. Pengiriman tetap berjalan, dan hasilnya bisa dilihat di menu Riwayat. Kalau halaman dibuka lagi, kemajuannya muncul kembali.</p><p>Untuk <strong>Kirim Cepat</strong>, pengiriman juga tetap berjalan, tetapi tampilan kemajuannya hilang kalau halaman ditutup. Hasilnya tetap tercatat di Riwayat.</p></div></details>
             <details><summary>Bagaimana cara menghentikan pengiriman?</summary><div class="answer"><p>Klik tombol <strong>Hentikan pengiriman</strong> di langkah Kirim. Pengiriman berhenti setelah pesan yang sedang diproses. Pesan yang sudah terkirim tidak bisa ditarik kembali.</p></div></details>
-            <details><summary>Bisakah dua orang mengirim di waktu yang sama?</summary><div class="answer"><p>Bisa, asalkan memakai nomor pengirim yang berbeda. Satu nomor hanya bisa menjalankan satu pengiriman massal dalam satu waktu.</p></div></details>
+            <details><summary>Berapa orang yang bisa memakai di waktu yang sama?</summary><div class="answer"><p>Halaman ini boleh dibuka banyak orang sekaligus. Yang dibatasi adalah pengirimannya:</p><ul><li>Satu nomor hanya bisa menjalankan <strong>satu</strong> pengiriman massal (menu Kirim Pesan) dalam satu waktu.</li><li>Jadi jumlah pengiriman massal yang bisa berjalan bersamaan sama dengan jumlah nomor yang terhubung, paling banyak <span class="js-max">10</span>.</li><li>Kalau sebuah nomor sedang dipakai, orang berikutnya perlu menunggu sampai selesai atau memakai nomor lain.</li></ul></div></details>
             <details><summary>Kenapa ada pesan yang gagal atau dilewati?</summary><div class="answer"><ul><li><strong>Dilewati</strong>: nomornya kosong atau terlalu pendek, jadi tidak dicoba kirim.</li><li><strong>Gagal</strong>: sudah dicoba tetapi tidak terkirim, misalnya nomor tidak terdaftar di WhatsApp atau koneksi sedang terputus.</li></ul><p>Kalau 10 pesan gagal berturut-turut, pengiriman berhenti sendiri supaya nomor tetap aman.</p></div></details>
 
             <h2>Melihat hasil</h2>
@@ -580,6 +579,7 @@
     let sessionsCache = [];
     let sessionsSig = null;
     let firstLoad = true;
+    let maxSessions = null;
     let columns = [];
     let contactCount = 0;
     let uploadId = null;
@@ -758,12 +758,24 @@
     }
 
     function renderConn() {
+      const total = sessionsCache.length;
       const connected = sessionsCache.filter((s) => s.connected).length;
+      const waiting = total - connected;
+      const text = !total ? "Belum ada nomor" : connected === total ? `${connected} nomor terhubung` : `${connected} dari ${total} nomor terhubung`;
       $("connDot").className = `dot ${connected ? "ok" : "warn"}`;
-      $("connText").textContent = connected ? `${connected} nomor terhubung` : "Belum ada nomor terhubung";
-      $("navCount").hidden = !sessionsCache.length;
-      $("navCount").textContent = `${connected}/${sessionsCache.length}`;
-      $("navCount").setAttribute("aria-label", `${connected} dari ${sessionsCache.length} nomor terhubung`);
+      $("connText").textContent = text;
+      const full = maxSessions !== null && total >= maxSessions;
+      $("numbersSummary").innerHTML = (total ? badge(`${connected} terhubung`, connected ? "success" : "") + (waiting ? " " + badge(`${waiting} belum terhubung`, "warn") : "") + "<br>" : "") +
+        (maxSessions === null ? "" : full
+          ? `<span class="hint">Sudah ${total} dari maksimal ${maxSessions} nomor. Hapus nomor yang tidak dipakai kalau mau menambah yang baru.</span>`
+          : `<span class="hint">Bisa menghubungkan sampai ${maxSessions} nomor. Saat ini ${total}, jadi masih bisa tambah ${maxSessions - total} lagi.</span>`);
+      $("addSessionBtn").disabled = full;
+      $("newSessionName").disabled = full;
+      document.querySelectorAll(".js-max").forEach((el) => { if (maxSessions !== null) el.textContent = maxSessions; });
+    }
+
+    async function loadLimits() {
+      try { maxSessions = (await api("/api/limits")).maxSessions; renderConn(); } catch {}
     }
 
     function sessionStatus(s) {
@@ -839,8 +851,8 @@
       } catch (err) {
         toast(err.message, "error");
       }
-      btn.disabled = false;
       btn.textContent = "Tambah nomor";
+      renderConn();
     }
 
     async function removeSession(card) {
@@ -1563,6 +1575,7 @@
     populateSelects();
     showPage(location.hash.slice(1) || "kirim", { focus: false, replace: true });
     refreshSessions();
+    loadLimits();
     setInterval(refreshSessions, 5000);
   </script>
 </body>
