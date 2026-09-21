@@ -198,7 +198,10 @@
 
     /* Chats */
     .chat-layout { display: grid; grid-template-columns: 300px 1fr; border: 1px solid var(--c-border); border-radius: var(--radius); background: var(--c-card); overflow: hidden; min-height: 460px; }
-    .chat-list { border-right: 1px solid var(--c-border); max-height: 600px; overflow-y: auto; }
+    .chat-side { display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--c-border); }
+    .chat-search { padding: 10px; border-bottom: 1px solid var(--c-border); }
+    .chat-list { max-height: 560px; overflow-y: auto; }
+    .list-more { padding: 12px; text-align: center; }
     .chat-item { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--c-border); background: none; padding: 12px 14px; cursor: pointer; min-height: 60px; transition: background-color 0.15s ease; }
     .chat-item:hover { background: var(--c-muted); }
     .chat-item.active { background: var(--c-primary-soft); }
@@ -285,7 +288,8 @@
       .stepper li.current .step-label { display: block; }
       .stat-grid { grid-template-columns: repeat(2, 1fr); }
       .chat-layout { grid-template-columns: 1fr; }
-      .chat-list { border-right: 0; border-bottom: 1px solid var(--c-border); max-height: 240px; }
+      .chat-side { border-right: 0; border-bottom: 1px solid var(--c-border); }
+      .chat-list { max-height: 240px; }
       .wizard-foot .btn { flex: 1; }
     }
     @media (prefers-reduced-motion: reduce) {
@@ -491,7 +495,7 @@
             <div class="history-top">
               <div>
                 <h1 tabindex="-1">Riwayat</h1>
-                <p>Semua pengiriman yang pernah dilakukan. Klik salah satu untuk melihat pesannya dan dikirim ke siapa saja.</p>
+                <p>Semua pengiriman yang pernah dilakukan, yang terbaru di atas. Klik salah satu untuk melihat pesannya dan dikirim ke siapa saja.</p>
               </div>
               <button type="button" class="btn btn-outline" data-action="history-refresh">Muat ulang</button>
             </div>
@@ -1328,31 +1332,92 @@
     }
 
     // ─── Percakapan ───
+    const CHAT_PAGE = 50;
+    let chatState = { sessionId: "", q: "", offset: 0 };
+    let chatReq = 0;
+    let chatSearchTimer = null;
+
+    const renderChatItem = (c) => `<button type="button" class="chat-item" data-action="chat-open" data-jid="${esc(c.jid)}">
+      <span class="row1"><span class="num">${esc(jidPhone(c.jid))}</span><time>${esc(formatTime(c.last_message_at))}</time></span>
+      <span class="row2">${c.sent_count} dikirim, ${c.received_count} balasan${c.read_count ? `, ${c.read_count} dibaca` : ""}</span>
+    </button>`;
+
+    function fetchChatPage() {
+      const { sessionId, q, offset } = chatState;
+      return api(`/api/sessions/${encodeURIComponent(sessionId)}/chats?limit=${CHAT_PAGE}&offset=${offset}&q=${encodeURIComponent(q)}`);
+    }
+
+    function renderChatPage(chats, append) {
+      const list = $("chatList");
+      if (!list) return;
+      list.querySelector(".list-more")?.remove();
+      if (!append) list.innerHTML = "";
+      chatState.offset += chats.length;
+      if (!append && !chats.length) {
+        list.innerHTML = `<p class="hint" style="padding:16px">Tidak ada nomor yang cocok dengan pencarian itu.</p>`;
+        return;
+      }
+      list.insertAdjacentHTML("beforeend", chats.map(renderChatItem).join("") +
+        (chats.length >= CHAT_PAGE ? `<div class="list-more"><button type="button" class="btn btn-outline" data-action="chats-more">Tampilkan lebih banyak</button></div>` : ""));
+      if (activeChat) list.querySelectorAll(".chat-item").forEach((c) => c.classList.toggle("active", c.dataset.jid === activeChat.jid));
+    }
+
     async function loadChats() {
       const sessionId = $("chatSessionSelect").value;
       const wrap = $("chatsWrap");
+      const token = ++chatReq;
       activeChat = null;
+      chatState = { sessionId, q: "", offset: 0 };
       if (!sessionId) {
         wrap.innerHTML = `<div class="card">${emptyState(ICON.chat, "Pilih nomor dulu", "Pilih nomor di atas untuk melihat percakapannya.")}</div>`;
         return;
       }
       wrap.innerHTML = `<div class="card"><p class="hint">Memuat percakapan...</p></div>`;
       try {
-        const chats = await api(`/api/sessions/${encodeURIComponent(sessionId)}/chats?limit=100`);
+        const chats = await fetchChatPage();
+        if (token !== chatReq) return;
         if (!chats.length) {
           wrap.innerHTML = `<div class="card">${emptyState(ICON.chat, "Belum ada percakapan", "Percakapan muncul setelah ada pesan yang dikirim dari sini atau balasan yang masuk.")}</div>`;
           return;
         }
         wrap.innerHTML = `<div class="chat-layout">
-          <div class="chat-list" aria-label="Daftar percakapan">${chats.map((c) => `<button type="button" class="chat-item" data-action="chat-open" data-jid="${esc(c.jid)}">
-            <span class="row1"><span class="num">${esc(jidPhone(c.jid))}</span><time>${esc(formatTime(c.last_message_at))}</time></span>
-            <span class="row2">${c.sent_count} dikirim, ${c.received_count} balasan${c.read_count ? `, ${c.read_count} dibaca` : ""}</span>
-          </button>`).join("")}</div>
+          <div class="chat-side">
+            <div class="chat-search"><label class="sr-only" for="chatSearch">Cari nomor</label><input type="search" id="chatSearch" inputmode="tel" placeholder="Cari nomor, misalnya 0812" autocomplete="off"></div>
+            <div class="chat-list" id="chatList" aria-label="Daftar percakapan"></div>
+          </div>
           <div class="chat-pane" id="chatPane">${emptyState(ICON.chat, "Pilih percakapan", "Klik salah satu nomor di daftar untuk melihat pesannya.")}</div>
         </div>`;
+        renderChatPage(chats, false);
       } catch (err) {
         wrap.innerHTML = `<div class="card"><div class="alert alert-warn" role="alert">${esc(err.message)}</div></div>`;
       }
+    }
+
+    async function loadMoreChats(btn) {
+      btn.disabled = true;
+      const token = chatReq;
+      try {
+        const chats = await fetchChatPage();
+        if (token === chatReq) renderChatPage(chats, true);
+      } catch (err) {
+        toast(err.message, "error");
+        btn.disabled = false;
+      }
+    }
+
+    function onChatSearch() {
+      clearTimeout(chatSearchTimer);
+      chatSearchTimer = setTimeout(async () => {
+        const token = ++chatReq;
+        chatState.q = $("chatSearch").value.trim();
+        chatState.offset = 0;
+        try {
+          const chats = await fetchChatPage();
+          if (token === chatReq) renderChatPage(chats, false);
+        } catch (err) {
+          toast(err.message, "error");
+        }
+      }, 300);
     }
 
     const renderMsg = (m) => {
@@ -1438,21 +1503,45 @@
       </div>`;
     }
 
+    const HISTORY_LIST_PAGE = 20;
+    let historyOffset = 0;
+
+    function appendHistory(jobs) {
+      const el = $("historyList");
+      el.querySelector(".list-more")?.remove();
+      historyOffset += jobs.length;
+      const fresh = jobs.filter((j) => !el.querySelector(`.history-card[data-id="${CSS.escape(j.id)}"]`));
+      el.insertAdjacentHTML("beforeend", fresh.map(renderHistoryCard).join("") +
+        (jobs.length >= HISTORY_LIST_PAGE ? `<div class="list-more"><button type="button" class="btn btn-outline" data-action="history-older">Tampilkan riwayat yang lebih lama</button></div>` : ""));
+    }
+
     async function loadHistory() {
       const el = $("historyList");
+      historyOffset = 0;
       try {
-        const jobs = await api("/api/history?limit=50");
+        const jobs = await api(`/api/history?limit=${HISTORY_LIST_PAGE}`);
         if (!jobs.length) {
           el.innerHTML = `<div class="card">${emptyState(ICON.clock, "Belum ada riwayat", "Setiap pengiriman akan tercatat di sini, lengkap dengan waktu dan daftar penerimanya.", `<button type="button" class="btn btn-primary" data-goto="kirim">Kirim pesan pertama</button>`)}</div>`;
           return;
         }
-        el.innerHTML = jobs.map(renderHistoryCard).join("");
+        el.innerHTML = "";
+        appendHistory(jobs);
         for (const id of [...expandedHistory]) {
           const card = el.querySelector(`.history-card[data-id="${CSS.escape(id)}"]`);
           if (card) openHistoryDetail(card); else expandedHistory.delete(id);
         }
       } catch (err) {
         el.innerHTML = `<div class="card"><div class="alert alert-warn" role="alert">${esc(err.message)}</div></div>`;
+      }
+    }
+
+    async function loadOlderHistory(btn) {
+      btn.disabled = true;
+      try {
+        appendHistory(await api(`/api/history?limit=${HISTORY_LIST_PAGE}&offset=${historyOffset}`));
+      } catch (err) {
+        toast(err.message, "error");
+        btn.disabled = false;
       }
     }
 
@@ -1547,6 +1636,8 @@
         case "session-remove": removeSession(card); break;
         case "chat-open": openChat(el); break;
         case "chat-more": loadMoreMsgs(el); break;
+        case "chats-more": loadMoreChats(el); break;
+        case "history-older": loadOlderHistory(el); break;
         case "history-refresh": loadHistory().then(() => toast("Riwayat dimuat ulang.")); break;
         case "history-toggle": toggleHistory(card); break;
         case "history-more": loadMoreHistoryItems(el); break;
@@ -1557,6 +1648,7 @@
       if (e.target.id === "fileInput") handleFile(e.target.files[0]);
       if (e.target.id === "chatSessionSelect") loadChats();
     });
+    document.addEventListener("input", (e) => { if (e.target.id === "chatSearch") onChatSearch(); });
     $("template").addEventListener("input", onTemplateInput);
     $("delayMin").addEventListener("input", renderReview);
     $("delayMax").addEventListener("input", renderReview);
