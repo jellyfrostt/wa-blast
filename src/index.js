@@ -136,7 +136,9 @@ app.post("/api/sessions/:id/pair", async (req, res) => {
 app.get("/api/sessions/:id/chats", (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
   const offset = parseInt(req.query.offset) || 0;
-  const chats = stmts.getChats.all(req.params.id, limit, offset);
+  // Numbers are stored as 62..., so a leading 0 typed by the user is dropped before matching.
+  const digits = String(req.query.q || "").replace(/\D/g, "").replace(/^0+/, "");
+  const chats = stmts.getChats.all(req.params.id, `%${digits}%`, limit, offset);
   res.json(chats);
 });
 

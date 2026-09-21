@@ -96,8 +96,8 @@ export const stmts = {
       SUM(CASE WHEN direction = 'incoming' THEN 1 ELSE 0 END) as received_count,
       SUM(CASE WHEN direction = 'outgoing' AND status = 'read' THEN 1 ELSE 0 END) as read_count,
       SUM(CASE WHEN direction = 'outgoing' AND status = 'delivered' THEN 1 ELSE 0 END) as delivered_count
-    FROM messages WHERE session_id = ?
-    GROUP BY jid ORDER BY last_message_at DESC LIMIT ? OFFSET ?
+    FROM messages WHERE session_id = ? AND jid LIKE ?
+    GROUP BY jid ORDER BY last_message_at DESC, jid LIMIT ? OFFSET ?
   `),
   getMessages: db.prepare(
     "SELECT * FROM messages WHERE session_id = ? AND jid = ? ORDER BY created_at DESC LIMIT ? OFFSET ?"
@@ -130,10 +130,10 @@ export const stmts = {
       COALESCE(SUM(i.status = 'skipped'), 0) AS skipped,
       COALESCE(SUM(m.status = 'delivered'), 0) AS delivered,
       COALESCE(SUM(m.status = 'read'), 0) AS read_count
-    FROM (SELECT * FROM send_jobs ORDER BY started_at DESC LIMIT ? OFFSET ?) j
+    FROM (SELECT * FROM send_jobs ORDER BY started_at DESC, id DESC LIMIT ? OFFSET ?) j
     LEFT JOIN send_job_items i ON i.job_id = j.id
     LEFT JOIN messages m ON m.message_id = i.message_id AND m.session_id = j.session_id
-    GROUP BY j.id ORDER BY j.started_at DESC
+    GROUP BY j.id ORDER BY j.started_at DESC, j.id DESC
   `),
   getJobItems: db.prepare(`
     SELECT i.idx, i.phone, i.content, i.status, i.error, i.created_at, m.status AS delivery_status
