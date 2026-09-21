@@ -212,7 +212,7 @@ app.post("/api/quick-send", async (req, res) => {
   }
 
   recordJobFinish(logger, jobId, "done");
-  res.write(JSON.stringify({ done: true, total: count, sent, failed }) + "\n");
+  res.write(JSON.stringify({ done: true, total: count, sent, failed, jobId }) + "\n");
   res.end();
 });
 
