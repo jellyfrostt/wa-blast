@@ -1201,7 +1201,7 @@
     function renderProgressActions() {
       $("progressActions").innerHTML = wizard.running
         ? `<span></span><button type="button" class="btn btn-danger-outline" data-action="blast-stop">Hentikan pengiriman</button>`
-        : `<button type="button" class="btn btn-outline" data-goto="riwayat">Lihat riwayat</button><button type="button" class="btn btn-primary" data-action="blast-new">Kirim pesan baru</button>`;
+        : `<button type="button" class="btn btn-outline" data-action="result-detail" data-job="${esc(wizard.finished?.id || "")}">Lihat detail per nomor</button><button type="button" class="btn btn-primary" data-action="blast-new">Kirim pesan baru</button>`;
     }
 
     function showResult(d) {
@@ -1220,7 +1220,22 @@
           ${left ? badge(`${left} belum dikirim`, "warn") : ""}
         </div>
         <div class="modal-actions">
-          <button type="button" class="btn btn-outline" data-action="result-history">Lihat riwayat</button>
+          <button type="button" class="btn btn-outline" data-action="result-detail" data-job="${esc(d.id || "")}">Lihat detail per nomor</button>
+          <button type="button" class="btn btn-primary" data-action="modal-cancel" data-autofocus>Tutup</button>
+        </div>`);
+    }
+
+    function showQuickResult({ jobId, phone, sent, failed, count }) {
+      const ok = failed === 0;
+      openModal(`<div class="modal-icon ${ok ? "success" : "danger"}">${ok ? ICON.check : ICON.alert}</div>
+        <h2 id="modalTitle">${ok ? "Pesan terkirim" : sent ? "Sebagian pesan gagal" : "Pesan gagal terkirim"}</h2>
+        <p>Ke ${esc(phone)}, ${count} kali kirim.</p>
+        <div class="history-stats" style="margin-top:16px">
+          ${badge(`${sent} terkirim`, "success")}
+          ${badge(`${failed} gagal`, failed ? "danger" : "")}
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" data-action="result-detail" data-job="${esc(jobId || "")}">Lihat detail per nomor</button>
           <button type="button" class="btn btn-primary" data-action="modal-cancel" data-autofocus>Tutup</button>
         </div>`);
     }
@@ -1289,7 +1304,7 @@
       $("quickFill").style.transform = "scaleX(0)";
       $("quickProgressText").textContent = `0 dari ${count}`;
       $("quickStats").textContent = "";
-      let sent = 0, failed = 0, current = 0;
+      let sent = 0, failed = 0, current = 0, jobId = null;
 
       try {
         const res = await fetch("/api/quick-send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId, phone, message, count }) });
@@ -1311,7 +1326,7 @@
             if (!line.trim()) continue;
             let d;
             try { d = JSON.parse(line); } catch { continue; }
-            if (d.done) continue;
+            if (d.done) { jobId = d.jobId || null; continue; }
             current++;
             if (d.status === "sent") sent++; else failed++;
             $("quickFill").style.transform = `scaleX(${current / count})`;
@@ -1323,7 +1338,8 @@
             </div>`);
           }
         }
-        toast(failed ? `${sent} terkirim, ${failed} gagal.` : `Pesan terkirim ke ${phone}.`, failed ? "error" : "success");
+        if (count > 1 || failed) showQuickResult({ jobId, phone, sent, failed, count });
+        else toast(`Pesan terkirim ke ${phone}. Detailnya ada di menu Riwayat.`, "success");
       } catch (err) {
         toast(err.message, "error");
       }
@@ -1505,6 +1521,12 @@
 
     const HISTORY_LIST_PAGE = 20;
     let historyOffset = 0;
+    let historyFocusId = null;
+
+    function openHistoryJob(id) {
+      if (id) { expandedHistory.add(id); historyFocusId = id; }
+      showPage("riwayat");
+    }
 
     function appendHistory(jobs) {
       const el = $("historyList");
@@ -1529,6 +1551,11 @@
         for (const id of [...expandedHistory]) {
           const card = el.querySelector(`.history-card[data-id="${CSS.escape(id)}"]`);
           if (card) openHistoryDetail(card); else expandedHistory.delete(id);
+        }
+        if (historyFocusId) {
+          const target = el.querySelector(`.history-card[data-id="${CSS.escape(historyFocusId)}"]`);
+          historyFocusId = null;
+          if (target) { target.scrollIntoView({ block: "start" }); target.querySelector(".history-head").focus({ preventScroll: true }); }
         }
       } catch (err) {
         el.innerHTML = `<div class="card"><div class="alert alert-warn" role="alert">${esc(err.message)}</div></div>`;
@@ -1622,7 +1649,7 @@
         case "modal-backdrop": if (e.target === el) closeModal(false); break;
         case "modal-cancel": closeModal(false); break;
         case "modal-confirm": closeModal(true); break;
-        case "result-history": closeModal(false); showPage("riwayat"); break;
+        case "result-detail": closeModal(false); openHistoryJob(el.dataset.job); break;
         case "goto-step": if (!el.disabled) setStep(Number(el.dataset.step)); break;
         case "wizard-back": if (wizard.step > 1) setStep(wizard.step - 1); break;
         case "wizard-next": wizardNext(); break;
