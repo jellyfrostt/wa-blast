@@ -99,7 +99,7 @@ Status updates come from Baileys `messages.update` event (status enum: 2=sent, 3
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/sessions/:id/chats` | List conversations `?limit=50&offset=0` |
+| GET | `/api/sessions/:id/chats` | List conversations `?limit=50&offset=0&q=` (`q` filters by phone digits) |
 | GET | `/api/sessions/:id/chats/:jid/messages` | Get messages `?limit=50&offset=0` |
 | GET | `/api/blast/:jobId/stats` | Blast delivery stats (sent/delivered/read) |
 
@@ -108,7 +108,7 @@ Status updates come from Baileys `messages.update` event (status enum: 2=sent, 3
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/send` | Send single message `{phone, message, sessionId?}` |
-| POST | `/api/quick-send` | Send a message N times `{phone, message, count, sessionId?}` |
+| POST | `/api/quick-send` | Send a message N times `{phone, message, count, sessionId?}`; the final stream line carries the history `jobId` |
 | POST | `/api/blast` | Start bulk blast `{template, sessionId?, uploadId?, delayMin, delayMax}` |
 | GET | `/api/status` | Blast job status for a session (polling) `?sessionId=` |
 | POST | `/api/cancel` | Cancel a session's running blast `{sessionId?}` |
@@ -136,8 +136,8 @@ Sidebar dashboard in plain Indonesian, aimed at non-technical users. Pages are d
 1. **Kirim Pesan** - guided 5-step blast: pick sender number, write message, upload contacts, review with preview, then send with live progress, a confirmation before sending and a result dialog when done. Reopening the page re-attaches to a blast that is still running.
 2. **Nomor WhatsApp** - add/remove WhatsApp numbers, scan QR with step-by-step instructions, or use a pairing code
 3. **Kirim Cepat** - send a message to a single number
-4. **Percakapan** - read-only conversations per number with delivery status
-5. **Riwayat** - every blast and quick send with sender, start/finish time and delivery breakdown; expand a card to see the message and each recipient
+4. **Percakapan** - read-only conversations per number with delivery status, number search and load-more paging
+5. **Riwayat** - every blast and quick send with sender, start/finish time and delivery breakdown, 20 per page; cards start collapsed and expand to show the message and each recipient. The result dialog shown after a send links straight to its card
 6. **Bantuan** - getting-started guide and searchable FAQ
 
 ## Reliability Features
