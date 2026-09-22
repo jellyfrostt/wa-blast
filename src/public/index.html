@@ -425,6 +425,7 @@
             <h1 tabindex="-1">Nomor WhatsApp</h1>
             <p>Hubungkan nomor WhatsApp yang akan dipakai untuk mengirim pesan. Caranya sama seperti membuka WhatsApp Web: scan kode QR dari HP.</p>
             <p id="numbersSummary" style="margin-top:12px" role="status"></p>
+            <div class="alert alert-warn" style="margin-bottom:0"><strong>Penting:</strong> nomor yang dihubungkan ke sini hanya boleh tertaut ke aplikasi ini. Di HP, buka WhatsApp, masuk ke <strong>Perangkat tertaut</strong>, dan pastikan tidak ada perangkat lain di daftarnya (misalnya WhatsApp Web di laptop). Kalau ada, ketuk perangkat itu lalu pilih <strong>Keluar</strong>. <button type="button" class="btn-link" data-action="faq-open" data-faq="faq-linked">Kenapa dan bagaimana caranya?</button></div>
           </header>
           <div class="card">
             <h2>Tambah nomor</h2>
@@ -526,7 +527,8 @@
           </div>
           <div class="faq" id="faq">
             <h2>Menghubungkan nomor</h2>
-            <details><summary>Bagaimana cara menghubungkan nomor WhatsApp?</summary><div class="answer"><ol><li>Buka menu <strong>Nomor WhatsApp</strong>, isi nama, lalu klik <strong>Tambah nomor</strong>.</li><li>Di HP, buka WhatsApp lalu masuk ke <strong>Perangkat tertaut</strong> (ada di menu titik tiga atau Setelan).</li><li>Ketuk <strong>Tautkan perangkat</strong> dan arahkan kamera ke kode QR di layar.</li><li>Tunggu sampai statusnya berubah menjadi <strong>Terhubung</strong>.</li></ol></div></details>
+            <details><summary>Bagaimana cara menghubungkan nomor WhatsApp?</summary><div class="answer"><ol><li>Buka menu <strong>Nomor WhatsApp</strong>, isi nama, lalu klik <strong>Tambah nomor</strong>.</li><li>Di HP, buka WhatsApp lalu masuk ke <strong>Perangkat tertaut</strong> (ada di menu titik tiga atau Setelan).</li><li>Kalau sudah ada perangkat lain di daftar itu, keluarkan dulu.</li><li>Ketuk <strong>Tautkan perangkat</strong> dan arahkan kamera ke kode QR di layar.</li><li>Tunggu sampai statusnya berubah menjadi <strong>Terhubung</strong>.</li></ol></div></details>
+            <details id="faq-linked"><summary>Bolehkah nomornya tetap tertaut ke WhatsApp Web atau perangkat lain?</summary><div class="answer"><p>Jangan. Nomor yang dipakai di sini hanya boleh tertaut ke aplikasi ini, supaya nomor itu tidak dipakai mengirim dari tempat lain di waktu yang sama.</p><p>Cara memastikannya:</p><ol><li>Di HP, buka WhatsApp lalu masuk ke <strong>Perangkat tertaut</strong>.</li><li>Lihat daftar perangkatnya. Setelah berhasil dihubungkan, aplikasi ini muncul di sana dengan nama yang memuat Chrome atau Windows.</li><li>Kalau ada perangkat lain, ketuk perangkat itu lalu pilih <strong>Keluar</strong>.</li></ol><p>WhatsApp di HP itu sendiri tetap bisa dipakai seperti biasa. Aplikasi ini belum bisa memeriksa daftar tersebut secara otomatis, jadi perlu dicek sendiri di HP.</p></div></details>
             <details><summary>Kamera HP saya tidak bisa scan kode QR. Ada cara lain?</summary><div class="answer"><p>Ada. Di kartu nomor tersebut klik <strong>Pakai kode</strong>, isi nomor HP-nya, lalu klik <strong>Minta kode</strong>. Di HP, pada layar Tautkan perangkat pilih <strong>Tautkan dengan nomor telepon</strong> dan masukkan kode yang muncul.</p></div></details>
             <details><summary>Status nomor saya "Terputus" atau "Menunggu scan QR". Harus bagaimana?</summary><div class="answer"><p>Kalau koneksi putus sebentar, sistem mencoba menyambung lagi sendiri sampai 8 kali. Kalau statusnya <strong>Menunggu scan QR</strong>, berarti nomor perlu dihubungkan ulang: scan kode QR yang muncul di menu Nomor WhatsApp.</p><p>Nomor juga bisa terputus kalau dikeluarkan dari daftar Perangkat tertaut di HP.</p></div></details>
             <details><summary>Bisakah menghubungkan lebih dari satu nomor?</summary><div class="answer"><p>Bisa, sampai <strong><span class="js-max">10</span> nomor</strong>. Tambahkan satu per satu di menu Nomor WhatsApp. Saat mengirim, kamu tinggal memilih mau kirim dari nomor yang mana.</p><p>Kalau sudah penuh, hapus dulu nomor yang tidak dipakai. Batas ini bisa dinaikkan oleh admin aplikasi.</p></div></details>
@@ -809,6 +811,7 @@
             <ol class="qr-steps">
               <li>Buka WhatsApp di HP.</li>
               <li>Masuk ke <strong>Perangkat tertaut</strong> (menu titik tiga atau Setelan).</li>
+              <li>Kalau sudah ada perangkat lain di daftar itu, keluarkan dulu semuanya.</li>
               <li>Ketuk <strong>Tautkan perangkat</strong>.</li>
               <li>Arahkan kamera HP ke kode QR ini.</li>
             </ol>
@@ -1656,6 +1659,7 @@
         case "insert-var": insertVar(el.dataset.col); break;
         case "pick-file": $("fileInput").click(); break;
         case "sample-file": downloadSample(); break;
+        case "faq-open": { showPage("bantuan"); $("faqSearch").value = ""; filterFaq(); const d = $(el.dataset.faq); if (d) { d.open = true; d.scrollIntoView({ block: "center" }); d.querySelector("summary").focus({ preventScroll: true }); } break; }
         case "blast-stop": stopBlast(); break;
         case "blast-new": newBlast(); break;
         case "pair-toggle": { const box = card.querySelector(".pair-box"); box.hidden = !box.hidden; if (!box.hidden) box.querySelector("input").focus(); break; }
