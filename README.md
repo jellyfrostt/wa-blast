@@ -219,6 +219,7 @@ Add a volume for `/app/data` to persist the SQLite database between deployments.
 - **messages** — session_id, jid, direction, content, message_id, status, blast_job_id, sender_name, timestamps
 - **send_jobs** — id, type (blast/quick), session_id, session_name, session_phone, template, status, total, started_at, finished_at
 - **send_job_items** — job_id, idx, phone, content, status, error, message_id, created_at
+- **lid_map** — session_id, lid, pn: the phone number behind a WhatsApp hidden id (`...@lid`), learned from incoming messages so replies are filed under the right number
 
 History keeps its own copy of the sender name/phone and recipients, so it survives removing a session. A job still marked `running` when the server starts is set to `interrupted`.
 
