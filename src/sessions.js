@@ -7,6 +7,7 @@ import { rm, readdir, unlink, mkdir, copyFile } from "fs/promises";
 import { existsSync } from "fs";
 import { toDataURL } from "qrcode";
 import { stmts } from "./db.js";
+import { resolveChatJid, rememberLid } from "./contacts.js";
 
 const makeWASocket = baileys.default || baileys.makeWASocket || baileys;
 const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore } = baileys;
@@ -144,8 +145,17 @@ async function initSession(sessionId, logger) {
   sock.ev.on("messages.upsert", ({ messages: msgs }) => {
     for (const msg of msgs) {
       if (!msg.message || msg.key.fromMe) continue;
-      const jid = msg.key.remoteJid;
-      if (jid === "status@broadcast") continue;
+      if (msg.key.remoteJid === "status@broadcast") continue;
+
+      let jid = msg.key.remoteJid;
+      try {
+        jid = resolveChatJid(sessionId, msg.key);
+      } catch (err) {
+        logger.warn({ sessionId, err: err.message }, "Failed to resolve chat id");
+      }
+      if (String(msg.key.remoteJid).endsWith("@lid")) {
+        logger.info({ sessionId, hasPhone: !!msg.key.senderPn, resolved: !jid.endsWith("@lid") }, "Incoming message addressed by hidden id");
+      }
 
       const content =
         msg.message.conversation ||
@@ -162,6 +172,14 @@ async function initSession(sessionId, logger) {
       } catch (err) {
         logger.warn({ sessionId, err: err.message }, "Failed to store incoming message");
       }
+    }
+  });
+
+  sock.ev.on("chats.phoneNumberShare", ({ lid, jid }) => {
+    try {
+      rememberLid(sessionId, lid, jid);
+    } catch (err) {
+      logger.warn({ sessionId, err: err.message }, "Failed to store shared phone number");
     }
   });
 
