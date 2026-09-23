@@ -63,6 +63,14 @@ db.exec(`
     FOREIGN KEY (job_id) REFERENCES send_jobs(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS lid_map (
+    session_id TEXT NOT NULL,
+    lid TEXT NOT NULL,
+    pn TEXT NOT NULL,
+    PRIMARY KEY (session_id, lid),
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+  );
+
   CREATE INDEX IF NOT EXISTS idx_job_started ON send_jobs(started_at);
   CREATE INDEX IF NOT EXISTS idx_job_items_job ON send_job_items(job_id, idx);
 `);
@@ -91,6 +99,7 @@ export const stmts = {
   getChats: db.prepare(`
     SELECT jid,
       MAX(created_at) as last_message_at,
+      MAX(CASE WHEN direction = 'incoming' THEN sender_name END) as contact_name,
       COUNT(*) as message_count,
       SUM(CASE WHEN direction = 'outgoing' THEN 1 ELSE 0 END) as sent_count,
       SUM(CASE WHEN direction = 'incoming' THEN 1 ELSE 0 END) as received_count,
@@ -114,6 +123,12 @@ export const stmts = {
       SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed
     FROM messages WHERE blast_job_id = ? GROUP BY blast_job_id
   `),
+
+  upsertLid: db.prepare(
+    "INSERT INTO lid_map (session_id, lid, pn) VALUES (?, ?, ?) ON CONFLICT(session_id, lid) DO UPDATE SET pn = excluded.pn"
+  ),
+  getLid: db.prepare("SELECT pn FROM lid_map WHERE session_id = ? AND lid = ?"),
+  relabelMessages: db.prepare("UPDATE messages SET jid = ? WHERE session_id = ? AND jid = ?"),
 
   insertJob: db.prepare(
     "INSERT INTO send_jobs (id, type, session_id, session_name, session_phone, template, total, started_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
