@@ -207,7 +207,7 @@
     .chat-item.active { background: var(--c-primary-soft); }
     .chat-item .row1 { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
     .chat-item .row1 time { font-weight: 400; color: var(--c-faint); font-size: 13px; white-space: nowrap; }
-    .chat-item .row2 { color: var(--c-muted-fg); font-size: 14px; }
+    .chat-item .row2 { display: block; color: var(--c-muted-fg); font-size: 14px; }
     .chat-pane { display: flex; flex-direction: column; min-width: 0; }
     .chat-pane-head { padding: 12px 16px; border-bottom: 1px solid var(--c-border); font-weight: 600; }
     .chat-msgs { flex: 1; max-height: 540px; overflow-y: auto; padding: 16px; background: #EFEAE2; display: flex; flex-direction: column; gap: 8px; }
@@ -615,10 +615,16 @@
       if (!s) return id || "";
       return s.phone ? `${s.name} (+${s.phone})` : s.name;
     }
-    const jidPhone = (jid) => {
-      const n = String(jid).replace(/@.*$/, "");
-      return /^\d+$/.test(n) ? `+${n}` : n;
-    };
+    // A chat id is a phone number only for "@s.whatsapp.net"; groups and hidden ids must not be shown as numbers.
+    function chatLabel(jid, name) {
+      const [id, server = ""] = String(jid).split("@");
+      if (server === "s.whatsapp.net") return { title: `+${id}`, sub: name || "" };
+      if (server === "g.us") return { title: "Grup WhatsApp", sub: `ID grup berakhiran ${id.slice(-4)}` };
+      if (server === "lid") return { title: name || "Kontak tanpa nomor", sub: "Nomornya disembunyikan WhatsApp" };
+      if (server === "newsletter") return { title: "Saluran WhatsApp", sub: "" };
+      if (server === "broadcast") return { title: "Siaran WhatsApp", sub: "" };
+      return { title: id, sub: name || "" };
+    }
     const ERROR_TEXT = {
       invalid_number: "Nomor tidak terdaftar di WhatsApp",
       timeout: "Waktu kirim habis, pesan tidak terkirim",
@@ -1356,10 +1362,14 @@
     let chatReq = 0;
     let chatSearchTimer = null;
 
-    const renderChatItem = (c) => `<button type="button" class="chat-item" data-action="chat-open" data-jid="${esc(c.jid)}">
-      <span class="row1"><span class="num">${esc(jidPhone(c.jid))}</span><time>${esc(formatTime(c.last_message_at))}</time></span>
-      <span class="row2">${c.sent_count} dikirim, ${c.received_count} balasan${c.read_count ? `, ${c.read_count} dibaca` : ""}</span>
-    </button>`;
+    const renderChatItem = (c) => {
+      const { title, sub } = chatLabel(c.jid, c.contact_name);
+      return `<button type="button" class="chat-item" data-action="chat-open" data-jid="${esc(c.jid)}" data-title="${esc(sub ? `${title} (${sub})` : title)}">
+        <span class="row1"><span class="num">${esc(title)}</span><time>${esc(formatTime(c.last_message_at))}</time></span>
+        ${sub ? `<span class="row2">${esc(sub)}</span>` : ""}
+        <span class="row2">${c.sent_count} dikirim, ${c.received_count} balasan${c.read_count ? `, ${c.read_count} dibaca` : ""}</span>
+      </button>`;
+    };
 
     function fetchChatPage() {
       const { sessionId, q, offset } = chatState;
@@ -1453,7 +1463,7 @@
       document.querySelectorAll(".chat-item").forEach((c) => c.classList.toggle("active", c === btn));
       activeChat = { sessionId, jid, offset: 0 };
       const pane = $("chatPane");
-      pane.innerHTML = `<div class="chat-pane-head"><span class="num">${esc(jidPhone(jid))}</span></div><div class="chat-msgs" id="chatMsgs"><p class="hint">Memuat pesan...</p></div>`;
+      pane.innerHTML = `<div class="chat-pane-head"><span class="num">${esc(btn.dataset.title)}</span></div><div class="chat-msgs" id="chatMsgs"><p class="hint">Memuat pesan...</p></div>`;
       try {
         const msgs = await api(`/api/sessions/${encodeURIComponent(sessionId)}/chats/${encodeURIComponent(jid)}/messages?limit=50&offset=0`);
         activeChat.offset = msgs.length;
