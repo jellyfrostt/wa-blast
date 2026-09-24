@@ -68,7 +68,9 @@ Each session runs at most one blast at a time, and different sessions can blast 
 
 ### Message Tracking
 
-All messages (incoming + outgoing) are stored in SQLite:
+Outgoing messages are stored in SQLite, together with replies from the numbers they were sent to. Nothing else is recorded: group chats, channels and private chats of the linked number are ignored, and chats this app did not start are neither listed nor readable through the API.
+
+WhatsApp may deliver a reply under a hidden id (`...@lid`) instead of the phone number. Such a reply is matched to its recipient from the number attached to the message or, failing that, by asking WhatsApp for the hidden id of recent recipients (at most 50 numbers every 5 minutes per session). Until it is matched it stays unlisted, and it is deleted after 3 days or as soon as every recent recipient is known.
 
 | Status | Meaning |
 |--------|---------|
@@ -219,7 +221,7 @@ Add a volume for `/app/data` to persist the SQLite database between deployments.
 - **messages** — session_id, jid, direction, content, message_id, status, blast_job_id, sender_name, timestamps
 - **send_jobs** — id, type (blast/quick), session_id, session_name, session_phone, template, status, total, started_at, finished_at
 - **send_job_items** — job_id, idx, phone, content, status, error, message_id, created_at
-- **lid_map** — session_id, lid, pn: the phone number behind a WhatsApp hidden id (`...@lid`), learned from incoming messages so replies are filed under the right number
+- **lid_map** — session_id, lid, pn: the hidden id (`...@lid`) of numbers this app has sent to, so their replies are filed under the right number
 
 History keeps its own copy of the sender name/phone and recipients, so it survives removing a session. A job still marked `running` when the server starts is set to `interrupted`.
 
