@@ -145,6 +145,8 @@ app.get("/api/sessions/:id/chats", (req, res) => {
 app.get("/api/sessions/:id/chats/:jid/messages", (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
   const offset = parseInt(req.query.offset) || 0;
+  // Same rule as the chat list: only conversations this app started are readable.
+  if (!stmts.hasOutgoing.get(req.params.id, req.params.jid)) return res.json([]);
   const messages = stmts.getMessages.all(req.params.id, req.params.jid, limit, offset);
   res.json(messages);
 });
