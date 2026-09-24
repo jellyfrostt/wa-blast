@@ -7,7 +7,7 @@ import { rm, readdir, unlink, mkdir, copyFile } from "fs/promises";
 import { existsSync } from "fs";
 import { toDataURL } from "qrcode";
 import { stmts } from "./db.js";
-import { resolveChatJid, rememberLid } from "./contacts.js";
+import { incomingChatJid, rememberLid, reconcileHiddenIds } from "./contacts.js";
 
 const makeWASocket = baileys.default || baileys.makeWASocket || baileys;
 const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore } = baileys;
@@ -147,15 +147,18 @@ async function initSession(sessionId, logger) {
       if (!msg.message || msg.key.fromMe) continue;
       if (msg.key.remoteJid === "status@broadcast") continue;
 
-      let jid = msg.key.remoteJid;
+      // Only replies from numbers this app has sent to are recorded; groups and private chats are ignored.
+      let jid = null;
       try {
-        jid = resolveChatJid(sessionId, msg.key);
+        jid = incomingChatJid(sessionId, msg.key);
       } catch (err) {
         logger.warn({ sessionId, err: err.message }, "Failed to resolve chat id");
       }
       if (String(msg.key.remoteJid).endsWith("@lid")) {
-        logger.info({ sessionId, hasPhone: !!msg.key.senderPn, resolved: !jid.endsWith("@lid") }, "Incoming message addressed by hidden id");
+        logger.info({ sessionId, hasPhone: !!msg.key.senderPn, recorded: !!jid }, "Incoming message addressed by hidden id");
       }
+      if (!jid) continue;
+      if (jid.endsWith("@lid")) reconcileHiddenIds(sessionId, sock, logger);
 
       const content =
         msg.message.conversation ||
@@ -223,6 +226,7 @@ async function initSession(sessionId, logger) {
       else stmts.updateSessionStatus.run("connected", sessionId);
 
       logger.info({ sessionId, phone }, "Session connected");
+      setTimeout(() => reconcileHiddenIds(sessionId, sock, logger), 5000);
     }
 
     if (connection === "close") {
