@@ -479,7 +479,7 @@
         <section class="page" id="page-percakapan">
           <header class="page-head">
             <h1 tabindex="-1">Percakapan</h1>
-            <p>Lihat pesan yang dikirim dari sini dan balasan yang masuk. Halaman ini hanya untuk melihat, belum bisa membalas.</p>
+            <p>Pesan yang dikirim dari aplikasi ini beserta balasannya. Chat lain di nomor tersebut, seperti grup dan chat pribadi, tidak direkam dan tidak ditampilkan. Halaman ini hanya untuk melihat, belum bisa membalas.</p>
           </header>
           <div class="card">
             <div class="field" style="margin-bottom:0">
@@ -549,6 +549,7 @@
             <h2>Melihat hasil</h2>
             <details><summary>Apa arti Terkirim, Diterima, dan Dibaca?</summary><div class="answer"><ul><li><strong>Terkirim</strong>: pesan sudah keluar dari nomor pengirim (centang satu).</li><li><strong>Diterima</strong>: pesan sudah sampai di HP penerima (centang dua).</li><li><strong>Dibaca</strong>: penerima sudah membuka pesannya (centang biru). Tidak muncul kalau penerima mematikan laporan dibaca.</li></ul></div></details>
             <details><summary>Apa bedanya Riwayat dan Percakapan?</summary><div class="answer"><p><strong>Riwayat</strong> mencatat tiap pengiriman: kapan, dari nomor mana, isi pesannya, dan dikirim ke siapa saja.</p><p><strong>Percakapan</strong> menampilkan obrolan per nomor tujuan, termasuk balasan yang masuk selama nomor terhubung.</p></div></details>
+            <details><summary>Apakah semua chat WhatsApp di nomor saya ikut terlihat di sini?</summary><div class="answer"><p>Tidak. Yang direkam hanya percakapan dengan nomor yang dikirimi pesan dari aplikasi ini, yaitu pesan yang dikirim dan balasannya. Grup, chat pribadi, dan pesan dari nomor lain tidak direkam dan tidak ditampilkan.</p><p>Catatan: WhatsApp kadang menyembunyikan nomor pengirim balasan. Kalau itu terjadi, balasannya tidak bisa dicocokkan dengan nomor tujuan dan tidak muncul di sini.</p></div></details>
             <details><summary>Siapa saja yang bisa melihat data di sini?</summary><div class="answer"><p>Aplikasi ini belum memakai login. Siapa pun yang punya alamat halaman ini bisa melihat semua nomor, percakapan, dan riwayat. Jangan bagikan alamatnya ke orang di luar tim.</p></div></details>
             <p class="empty" id="faqEmpty" hidden>Tidak ada pertanyaan yang cocok dengan kata kunci itu.</p>
           </div>
@@ -1406,7 +1407,7 @@
         const chats = await fetchChatPage();
         if (token !== chatReq) return;
         if (!chats.length) {
-          wrap.innerHTML = `<div class="card">${emptyState(ICON.chat, "Belum ada percakapan", "Percakapan muncul setelah ada pesan yang dikirim dari sini atau balasan yang masuk.")}</div>`;
+          wrap.innerHTML = `<div class="card">${emptyState(ICON.chat, "Belum ada percakapan", "Percakapan muncul setelah ada pesan yang dikirim dari aplikasi ini.")}</div>`;
           return;
         }
         wrap.innerHTML = `<div class="chat-layout">
