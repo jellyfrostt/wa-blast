@@ -68,7 +68,7 @@ Each session runs at most one blast at a time, and different sessions can blast 
 
 ### Message Tracking
 
-Outgoing messages are stored in SQLite, together with replies from the numbers they were sent to. Nothing else is recorded: group chats, channels and private chats of the linked number are ignored, and chats this app did not start are neither listed nor readable through the API.
+Outgoing messages are stored in SQLite, together with the live chat that follows with each number they were sent to: replies, later topics, and messages the owner types on the phone, with no time cutoff. The Percakapan page refreshes the open conversation every 5 seconds. Nothing else is recorded: group chats, channels and private chats of the linked number are ignored, and chats this app did not start are neither listed nor readable through the API.
 
 WhatsApp may deliver a reply under a hidden id (`...@lid`) instead of the phone number. Such a reply is matched to its recipient from the number attached to the message or, failing that, by asking WhatsApp for the hidden id of recent recipients (at most 50 numbers every 5 minutes per session). Until it is matched it stays unlisted, and it is deleted after 3 days or as soon as every recent recipient is known.
 
