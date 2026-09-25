@@ -7,7 +7,7 @@ import { rm, readdir, unlink, mkdir, copyFile } from "fs/promises";
 import { existsSync } from "fs";
 import { toDataURL } from "qrcode";
 import { stmts } from "./db.js";
-import { incomingChatJid, rememberLid, reconcileHiddenIds } from "./contacts.js";
+import { recordChatMessage, rememberLid, reconcileHiddenIds } from "./contacts.js";
 
 const makeWASocket = baileys.default || baileys.makeWASocket || baileys;
 const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore } = baileys;
@@ -144,36 +144,15 @@ async function initSession(sessionId, logger) {
   // ── Incoming messages ──
   sock.ev.on("messages.upsert", ({ messages: msgs }) => {
     for (const msg of msgs) {
-      if (!msg.message || msg.key.fromMe) continue;
-      if (msg.key.remoteJid === "status@broadcast") continue;
-
-      // Only replies from numbers this app has sent to are recorded; groups and private chats are ignored.
-      let jid = null;
       try {
-        jid = incomingChatJid(sessionId, msg.key);
+        // Live chat is kept only for numbers this app has sent to; groups and other chats are ignored.
+        const jid = recordChatMessage(sessionId, msg);
+        if (!msg.key.fromMe && String(msg.key.remoteJid).endsWith("@lid")) {
+          logger.info({ sessionId, hasPhone: !!msg.key.senderPn, recorded: !!jid }, "Incoming message addressed by hidden id");
+        }
+        if (jid?.endsWith("@lid")) reconcileHiddenIds(sessionId, sock, logger);
       } catch (err) {
-        logger.warn({ sessionId, err: err.message }, "Failed to resolve chat id");
-      }
-      if (String(msg.key.remoteJid).endsWith("@lid")) {
-        logger.info({ sessionId, hasPhone: !!msg.key.senderPn, recorded: !!jid }, "Incoming message addressed by hidden id");
-      }
-      if (!jid) continue;
-      if (jid.endsWith("@lid")) reconcileHiddenIds(sessionId, sock, logger);
-
-      const content =
-        msg.message.conversation ||
-        msg.message.extendedTextMessage?.text ||
-        msg.message.imageMessage?.caption ||
-        msg.message.videoMessage?.caption ||
-        "[media]";
-
-      try {
-        stmts.insertMessage.run(
-          sessionId, jid, "incoming", content,
-          msg.key.id, "received", null, msg.pushName || null,
-        );
-      } catch (err) {
-        logger.warn({ sessionId, err: err.message }, "Failed to store incoming message");
+        logger.warn({ sessionId, err: err.message }, "Failed to store chat message");
       }
     }
   });
