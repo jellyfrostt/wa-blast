@@ -128,11 +128,11 @@ export const stmts = {
       SUM(CASE WHEN direction = 'incoming' THEN 1 ELSE 0 END) as received_count,
       SUM(CASE WHEN direction = 'outgoing' AND status = 'read' THEN 1 ELSE 0 END) as read_count,
       SUM(CASE WHEN direction = 'outgoing' AND status = 'delivered' THEN 1 ELSE 0 END) as delivered_count
-    FROM messages WHERE session_id = ? AND jid LIKE ?
+    FROM messages WHERE session_id = ? AND jid LIKE ? AND jid LIKE '%@s.whatsapp.net'
     GROUP BY jid HAVING sent_count > 0 ORDER BY last_message_at DESC, jid LIMIT ? OFFSET ?
   `),
   getMessages: db.prepare(
-    "SELECT * FROM messages WHERE session_id = ? AND jid = ? ORDER BY created_at DESC LIMIT ? OFFSET ?"
+    "SELECT * FROM messages WHERE session_id = ? AND jid = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?"
   ),
   getBlastMessages: db.prepare(
     "SELECT * FROM messages WHERE blast_job_id = ? ORDER BY created_at"
@@ -153,6 +153,7 @@ export const stmts = {
   getLid: db.prepare("SELECT pn FROM lid_map WHERE session_id = ? AND lid = ?"),
   relabelMessages: db.prepare("UPDATE messages SET jid = ? WHERE session_id = ? AND jid = ?"),
   hasOutgoing: db.prepare("SELECT 1 FROM messages WHERE session_id = ? AND jid = ? AND direction = 'outgoing' LIMIT 1"),
+  hasMessageId: db.prepare("SELECT 1 FROM messages WHERE session_id = ? AND message_id = ? LIMIT 1"),
   unmappedRecipients: db.prepare(UNMAPPED_RECIPIENTS + " LIMIT 500"),
   hasUnmappedRecipient: db.prepare(UNMAPPED_RECIPIENTS + " LIMIT 1"),
   hasHiddenRows: db.prepare("SELECT 1 FROM messages WHERE session_id = ? AND jid LIKE '%@lid' LIMIT 1"),

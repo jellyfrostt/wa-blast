@@ -19,26 +19,57 @@ export function rememberLid(sessionId, lid, pn) {
 
 export function resolveChatJid(sessionId, key) {
   const jid = stripDevice(key.remoteJid);
+  // On our own messages the sender attributes describe us, not the chat, so they are not used.
   if (!isLid(jid)) {
-    if (isPhone(jid) && key.senderLid) rememberLid(sessionId, key.senderLid, jid);
+    if (!key.fromMe && isPhone(jid) && key.senderLid) rememberLid(sessionId, key.senderLid, jid);
     return jid;
   }
-  if (key.senderPn) {
+  if (!key.fromMe && key.senderPn) {
     rememberLid(sessionId, jid, key.senderPn);
     return stripDevice(key.senderPn);
   }
   return stmts.getLid.get(sessionId, jid)?.pn ?? jid;
 }
 
-// The jid to file an incoming message under, or null when it must not be recorded
+// The jid to file a message under, or null when it must not be recorded
 // (groups, channels, and anyone this app has never sent a message to).
 // A hidden id we cannot match yet is kept, unlisted, only while some recipient's hidden id is
 // still unknown; reconcileHiddenIds() then merges it into that recipient's chat or deletes it.
-export function incomingChatJid(sessionId, key) {
+export function recordableChatJid(sessionId, key) {
   const jid = resolveChatJid(sessionId, key);
   if (isPhone(jid)) return isRecipient(sessionId, jid) ? jid : null;
-  if (isLid(jid)) return stmts.hasUnmappedRecipient.get(sessionId) ? jid : null;
+  if (isLid(jid) && !key.fromMe) return stmts.hasUnmappedRecipient.get(sessionId) ? jid : null;
   return null;
+}
+
+const textOf = (m) =>
+  m.conversation || m.extendedTextMessage?.text || m.imageMessage?.caption || m.videoMessage?.caption || "[media]";
+
+// Records one message of a live chat with a recipient: their replies, and what the owner types on
+// the phone. Returns the jid it was filed under, or null when nothing was recorded.
+export function recordChatMessage(sessionId, msg, { ownDelayMs = 3000 } = {}) {
+  const key = msg.key;
+  if (!msg.message || key.remoteJid === "status@broadcast") return null;
+  const jid = recordableChatJid(sessionId, key);
+  if (!jid) return null;
+  if (key.id && stmts.hasMessageId.get(sessionId, key.id)) return null;
+  const content = textOf(msg.message);
+
+  if (!key.fromMe) {
+    stmts.insertMessage.run(sessionId, jid, "incoming", content, key.id, "received", null, msg.pushName || null);
+    return jid;
+  }
+  // Baileys also reports the messages this app sends; those are stored by the sender right after
+  // the send, so wait briefly and skip them instead of storing them twice.
+  const timer = setTimeout(() => {
+    try {
+      if (!stmts.hasMessageId.get(sessionId, key.id)) {
+        stmts.insertMessage.run(sessionId, jid, "outgoing", content, key.id, "sent", null, null);
+      }
+    } catch {}
+  }, ownDelayMs);
+  timer.unref?.();
+  return jid;
 }
 
 const RECONCILE_EVERY_MS = 5 * 60 * 1000;
