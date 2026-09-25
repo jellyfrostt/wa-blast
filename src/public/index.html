@@ -209,7 +209,8 @@
     .chat-item .row1 time { font-weight: 400; color: var(--c-faint); font-size: 13px; white-space: nowrap; }
     .chat-item .row2 { display: block; color: var(--c-muted-fg); font-size: 14px; }
     .chat-pane { display: flex; flex-direction: column; min-width: 0; }
-    .chat-pane-head { padding: 12px 16px; border-bottom: 1px solid var(--c-border); font-weight: 600; }
+    .chat-pane-head { padding: 12px 16px; border-bottom: 1px solid var(--c-border); font-weight: 600; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .live-note { display: inline-flex; align-items: center; gap: 6px; font-weight: 400; font-size: 13px; color: var(--c-muted-fg); }
     .chat-msgs { flex: 1; max-height: 540px; overflow-y: auto; padding: 16px; background: #EFEAE2; display: flex; flex-direction: column; gap: 8px; }
     .msg { max-width: 78%; padding: 8px 12px; border-radius: 10px; color: #111B21; }
     .msg-text { white-space: pre-wrap; word-break: break-word; }
@@ -479,7 +480,7 @@
         <section class="page" id="page-percakapan">
           <header class="page-head">
             <h1 tabindex="-1">Percakapan</h1>
-            <p>Pesan yang dikirim dari aplikasi ini beserta balasannya. Chat lain di nomor tersebut, seperti grup dan chat pribadi, tidak direkam dan tidak ditampilkan. Halaman ini hanya untuk melihat, belum bisa membalas.</p>
+            <p>Obrolan dengan nomor yang dikirimi pesan dari aplikasi ini, mulai dari pesan pertama yang dikirim sampai yang terbaru, termasuk yang diketik langsung dari HP. Grup dan chat dengan nomor lain tidak direkam. Halaman ini hanya untuk melihat, belum bisa membalas.</p>
           </header>
           <div class="card">
             <div class="field" style="margin-bottom:0">
@@ -548,8 +549,8 @@
 
             <h2>Melihat hasil</h2>
             <details><summary>Apa arti Terkirim, Diterima, dan Dibaca?</summary><div class="answer"><ul><li><strong>Terkirim</strong>: pesan sudah keluar dari nomor pengirim (centang satu).</li><li><strong>Diterima</strong>: pesan sudah sampai di HP penerima (centang dua).</li><li><strong>Dibaca</strong>: penerima sudah membuka pesannya (centang biru). Tidak muncul kalau penerima mematikan laporan dibaca.</li></ul></div></details>
-            <details><summary>Apa bedanya Riwayat dan Percakapan?</summary><div class="answer"><p><strong>Riwayat</strong> mencatat tiap pengiriman: kapan, dari nomor mana, isi pesannya, dan dikirim ke siapa saja.</p><p><strong>Percakapan</strong> menampilkan obrolan per nomor tujuan, termasuk balasan yang masuk selama nomor terhubung.</p></div></details>
-            <details><summary>Apakah semua chat WhatsApp di nomor saya ikut terlihat di sini?</summary><div class="answer"><p>Tidak. Yang direkam hanya percakapan dengan nomor yang dikirimi pesan dari aplikasi ini, yaitu pesan yang dikirim dan balasannya. Grup, chat pribadi, dan pesan dari nomor lain tidak direkam dan tidak ditampilkan.</p><p>Catatan: WhatsApp kadang menyembunyikan nomor pengirim balasan. Kalau itu terjadi, balasannya tidak bisa dicocokkan dengan nomor tujuan dan tidak muncul di sini.</p></div></details>
+            <details><summary>Apa bedanya Riwayat dan Percakapan?</summary><div class="answer"><p><strong>Riwayat</strong> mencatat tiap pengiriman: kapan, dari nomor mana, isi pesannya, dan dikirim ke siapa saja.</p><p><strong>Percakapan</strong> menampilkan obrolan per nomor tujuan secara langsung: pesan yang dikirim, balasannya, dan obrolan sesudahnya selama nomor terhubung.</p></div></details>
+            <details><summary>Apakah semua chat WhatsApp di nomor saya ikut terlihat di sini?</summary><div class="answer"><p>Tidak semuanya. Yang direkam hanya obrolan dengan nomor yang pernah dikirimi pesan dari aplikasi ini. Untuk nomor itu, obrolannya terekam terus mulai dari pesan pertama yang dikirim: balasan mereka, topik lain sesudahnya, dan pesan yang kamu ketik langsung dari HP.</p><p>Grup dan chat dengan nomor yang tidak pernah dikirimi pesan dari sini tidak direkam dan tidak ditampilkan.</p><p>Catatan: WhatsApp kadang menyembunyikan nomor pengirim. Aplikasi akan mencocokkannya dengan nomor tujuan; kalau belum berhasil, pesannya belum muncul di sini.</p></div></details>
             <details><summary>Siapa saja yang bisa melihat data di sini?</summary><div class="answer"><p>Aplikasi ini belum memakai login. Siapa pun yang punya alamat halaman ini bisa melihat semua nomor, percakapan, dan riwayat. Jangan bagikan alamatnya ke orang di luar tim.</p></div></details>
             <p class="empty" id="faqEmpty" hidden>Tidak ada pertanyaan yang cocok dengan kata kunci itu.</p>
           </div>
@@ -1458,21 +1459,67 @@
         `<div class="msg-meta">${esc(formatTime(m.created_at))}${out ? " · " + esc(ITEM_LABEL[m.status] || m.status) : ""}</div></div>`;
     };
 
+    const MORE_MSGS_BTN = `<button type="button" class="btn btn-outline" data-action="chat-more" style="align-self:center">Muat pesan sebelumnya</button>`;
+    const chatSig = (msgs) => msgs.map((m) => `${m.id}:${m.status}`).join(",");
+    const latestMsgs = (chat) => api(`/api/sessions/${encodeURIComponent(chat.sessionId)}/chats/${encodeURIComponent(chat.jid)}/messages?limit=50&offset=0`);
+
     async function openChat(btn) {
       const sessionId = $("chatSessionSelect").value;
       const jid = btn.dataset.jid;
       document.querySelectorAll(".chat-item").forEach((c) => c.classList.toggle("active", c === btn));
-      activeChat = { sessionId, jid, offset: 0 };
+      const chat = activeChat = { sessionId, jid, offset: 0, sig: "", lastId: 0 };
       const pane = $("chatPane");
-      pane.innerHTML = `<div class="chat-pane-head"><span class="num">${esc(btn.dataset.title)}</span></div><div class="chat-msgs" id="chatMsgs"><p class="hint">Memuat pesan...</p></div>`;
+      pane.innerHTML = `<div class="chat-pane-head"><span class="num">${esc(btn.dataset.title)}</span><span class="live-note"><span class="dot ok"></span>Pesan baru muncul otomatis</span></div><div class="chat-msgs" id="chatMsgs" aria-live="polite"><p class="hint">Memuat pesan...</p></div>`;
       try {
-        const msgs = await api(`/api/sessions/${encodeURIComponent(sessionId)}/chats/${encodeURIComponent(jid)}/messages?limit=50&offset=0`);
-        activeChat.offset = msgs.length;
+        const msgs = await latestMsgs(chat);
+        if (chat !== activeChat) return;
+        chat.offset = msgs.length;
+        chat.sig = chatSig(msgs);
+        chat.lastId = Math.max(0, ...msgs.map((m) => m.id));
         const box = $("chatMsgs");
-        box.innerHTML = (msgs.length >= 50 ? `<button type="button" class="btn btn-outline" data-action="chat-more" style="align-self:center">Muat pesan sebelumnya</button>` : "") + msgs.slice().reverse().map(renderMsg).join("");
+        box.innerHTML = (msgs.length >= 50 ? MORE_MSGS_BTN : "") + msgs.slice().reverse().map(renderMsg).join("");
         box.scrollTop = box.scrollHeight;
       } catch (err) {
         $("chatMsgs").innerHTML = `<div class="alert alert-warn" role="alert">${esc(err.message)}</div>`;
+      }
+    }
+
+    // Live view: the open conversation and the first page of the list refresh on their own.
+    async function refreshOpenChat() {
+      const chat = activeChat;
+      if (!chat || document.hidden || !$("page-percakapan").classList.contains("active")) return;
+      let msgs;
+      try { msgs = await latestMsgs(chat); } catch { return; }
+      const box = $("chatMsgs");
+      if (chat !== activeChat || !box) return;
+      const sig = chatSig(msgs);
+      if (sig === chat.sig) return;
+      const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+      if (chat.offset <= 50) {
+        box.innerHTML = (msgs.length >= 50 ? MORE_MSGS_BTN : "") + msgs.slice().reverse().map(renderMsg).join("");
+        chat.offset = msgs.length;
+      } else {
+        const fresh = msgs.filter((m) => m.id > chat.lastId).reverse();
+        box.insertAdjacentHTML("beforeend", fresh.map(renderMsg).join(""));
+        chat.offset += fresh.length;
+      }
+      chat.sig = sig;
+      chat.lastId = Math.max(chat.lastId, ...msgs.map((m) => m.id));
+      if (atBottom) box.scrollTop = box.scrollHeight;
+    }
+
+    async function refreshChatList() {
+      if (document.hidden || !$("page-percakapan").classList.contains("active") || !$("chatList")) return;
+      if (!chatState.sessionId || chatState.offset > CHAT_PAGE) return;
+      const token = chatReq;
+      const before = chatState.offset;
+      chatState.offset = 0;
+      try {
+        const chats = await fetchChatPage();
+        if (token !== chatReq) return;
+        renderChatPage(chats, false);
+      } catch {
+        chatState.offset = before;
       }
     }
 
@@ -1711,6 +1758,8 @@
     refreshSessions();
     loadLimits();
     setInterval(refreshSessions, 5000);
+    setInterval(refreshOpenChat, 5000);
+    setInterval(refreshChatList, 15000);
   </script>
 </body>
 </html>
