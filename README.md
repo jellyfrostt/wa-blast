@@ -93,7 +93,8 @@ Status updates come from Baileys `messages.update` event (status enum: 2=sent, 3
 | GET | `/api/limits` | Configured limits `{maxSessions}` |
 | GET | `/api/sessions` | List all sessions |
 | GET | `/api/sessions/:id` | Session detail + connection log |
-| DELETE | `/api/sessions/:id` | Remove session (logout + clear auth) |
+| DELETE | `/api/sessions/:id` | Remove session (logout + clear auth); its chats and history are kept |
+| GET | `/api/sessions/archived` | Removed numbers that still have chats |
 | GET | `/api/sessions/:id/qr` | Get QR data URL |
 | POST | `/api/sessions/:id/pair` | Request pairing code `{phone}` |
 
@@ -128,6 +129,7 @@ Status updates come from Baileys `messages.update` event (status enum: 2=sent, 3
 | POST | `/api/disconnect` | Disconnect session `{sessionId?}` |
 | GET | `/api/connection-log` | Connection event log `?sessionId=` |
 | POST | `/api/clear` | Clear uploaded contacts `{uploadId?}` |
+| GET | `/api/backup` | Download a consistent copy of the database (only when `BACKUP_TOKEN` is set) |
 
 All send endpoints accept optional `sessionId`. If omitted, uses the first connected session. If `uploadId` is omitted, the most recent upload is used; without `sessionId`, status and cancel apply to the most recently started blast.
 
@@ -209,6 +211,8 @@ docker run -p 3001:3001 \
 | `LOG_LEVEL` | `info` | Pino log level (debug, info, warn, error) |
 | `DB_PATH` | `./data/wa-blast.db` | SQLite database file path |
 | `MAX_SESSIONS` | `10` | Maximum WhatsApp numbers that can be added; the dashboard shows this limit |
+| `BACKUP_KEEP` | `7` | Daily database backups to keep next to the database (`0` disables backups) |
+| `BACKUP_TOKEN` | unset | Enables `GET /api/backup`; the request must send `Authorization: Bearer <token>` |
 
 ### Railway
 
@@ -224,6 +228,13 @@ Add a volume for `/app/data` to persist the SQLite database between deployments.
 - **lid_map** — session_id, lid, pn: the hidden id (`...@lid`) of numbers this app has sent to, so their replies are filed under the right number
 
 History keeps its own copy of the sender name/phone and recipients, so it survives removing a session. A job still marked `running` when the server starts is set to `interrupted`.
+
+### Backups
+- A snapshot `backups/wa-blast-YYYY-MM-DD.db` is written next to the database once a day; the newest `BACKUP_KEEP` are kept
+- These sit on the same volume as the database, so they do not survive losing the volume. For an off-site copy set `BACKUP_TOKEN` and pull `/api/backup` on a schedule
+
+### Removed numbers
+- Removing a number that has chats marks it `removed` instead of deleting it, so its conversations stay readable; a number without chats is deleted outright
 
 ### JSON Logs (`./logs/`)
 - Blast results saved as `blast-{timestamp}.json` (legacy, kept for backup)
