@@ -550,6 +550,7 @@
             <h2>Melihat hasil</h2>
             <details><summary>Apa arti Terkirim, Diterima, dan Dibaca?</summary><div class="answer"><ul><li><strong>Terkirim</strong>: pesan sudah keluar dari nomor pengirim (centang satu).</li><li><strong>Diterima</strong>: pesan sudah sampai di HP penerima (centang dua).</li><li><strong>Dibaca</strong>: penerima sudah membuka pesannya (centang biru). Tidak muncul kalau penerima mematikan laporan dibaca.</li></ul></div></details>
             <details><summary>Apa bedanya Riwayat dan Percakapan?</summary><div class="answer"><p><strong>Riwayat</strong> mencatat tiap pengiriman: kapan, dari nomor mana, isi pesannya, dan dikirim ke siapa saja.</p><p><strong>Percakapan</strong> menampilkan obrolan per nomor tujuan secara langsung: pesan yang dikirim, balasannya, dan obrolan sesudahnya selama nomor terhubung.</p></div></details>
+            <details><summary>Kalau nomor dihapus dari aplikasi, apakah percakapannya ikut hilang?</summary><div class="answer"><p>Tidak. Percakapan dan riwayat pengirimannya tetap tersimpan. Di menu Percakapan, nomor itu masih bisa dipilih dengan keterangan "sudah dihapus".</p><p>Kalau nomor yang sama dihubungkan lagi, percakapan barunya tercatat terpisah dari yang lama.</p></div></details>
             <details><summary>Apakah semua chat WhatsApp di nomor saya ikut terlihat di sini?</summary><div class="answer"><p>Tidak semuanya. Yang direkam hanya obrolan dengan nomor yang pernah dikirimi pesan dari aplikasi ini. Untuk nomor itu, obrolannya terekam terus mulai dari pesan pertama yang dikirim: balasan mereka, topik lain sesudahnya, dan pesan yang kamu ketik langsung dari HP.</p><p>Grup dan chat dengan nomor yang tidak pernah dikirimi pesan dari sini tidak direkam dan tidak ditampilkan.</p><p>Catatan: WhatsApp kadang menyembunyikan nomor pengirim. Aplikasi akan mencocokkannya dengan nomor tujuan; kalau belum berhasil, pesannya belum muncul di sini.</p></div></details>
             <details><summary>Siapa saja yang bisa melihat data di sini?</summary><div class="answer"><p>Aplikasi ini belum memakai login. Siapa pun yang punya alamat halaman ini bisa melihat semua nomor, percakapan, dan riwayat. Jangan bagikan alamatnya ke orang di luar tim.</p></div></details>
             <p class="empty" id="faqEmpty" hidden>Tidak ada pertanyaan yang cocok dengan kata kunci itu.</p>
@@ -588,6 +589,7 @@
     let sessionsSig = null;
     let firstLoad = true;
     let maxSessions = null;
+    let archivedSessions = [];
     let columns = [];
     let contactCount = 0;
     let uploadId = null;
@@ -613,7 +615,7 @@
     const initials = (name) => (String(name || "?").trim()[0] || "?").toUpperCase();
     const sessionById = (id) => sessionsCache.find((s) => s.id === id);
     function sessionLabel(id) {
-      const s = sessionById(id);
+      const s = sessionById(id) || archivedSessions.find((a) => a.id === id);
       if (!s) return id || "";
       return s.phone ? `${s.name} (+${s.phone})` : s.name;
     }
@@ -740,7 +742,7 @@
         if (on) n.setAttribute("aria-current", "page"); else n.removeAttribute("aria-current");
       });
       if (location.hash.slice(1) !== name) history[replace ? "replaceState" : "pushState"](null, "", `#${name}`);
-      if (name === "percakapan") loadChats();
+      if (name === "percakapan") { loadArchived(); loadChats(); }
       if (name === "riwayat") loadHistory();
       window.scrollTo(0, 0);
       if (focus) $(`page-${name}`).querySelector("h1")?.focus({ preventScroll: true });
@@ -786,6 +788,15 @@
       $("addSessionBtn").disabled = full;
       $("newSessionName").disabled = full;
       document.querySelectorAll(".js-max").forEach((el) => { if (maxSessions !== null) el.textContent = maxSessions; });
+    }
+
+    async function loadArchived() {
+      try {
+        const list = await api("/api/sessions/archived");
+        const changed = JSON.stringify(list) !== JSON.stringify(archivedSessions);
+        archivedSessions = list;
+        if (changed) populateSelects();
+      } catch {}
     }
 
     async function loadLimits() {
@@ -875,7 +886,7 @@
       if (!s) return;
       const ok = await confirmDialog({
         title: `Hapus nomor ${s.name}?`,
-        body: "Nomor ini akan diputus dari sini dan percakapannya ikut terhapus. Riwayat pengiriman tetap tersimpan.",
+        body: "Nomor ini akan diputus dari sini. Percakapan dan riwayat pengirimannya tetap tersimpan dan masih bisa dilihat.",
         confirmText: "Ya, hapus",
         danger: true,
       });
@@ -883,7 +894,8 @@
       try {
         await api(`/api/sessions/${encodeURIComponent(s.id)}`, { method: "DELETE" });
         await refreshSessions();
-        toast(`Nomor ${s.name} dihapus.`, "success");
+        await loadArchived();
+        toast(`Nomor ${s.name} dihapus. Percakapannya tetap tersimpan.`, "success");
       } catch (err) {
         toast(err.message, "error");
       }
@@ -915,7 +927,12 @@
       const connected = sessionsCache.filter((s) => s.connected);
       fill("quickSessionSelect", connected, connected.length ? "Pilih nomor pengirim" : "Belum ada nomor terhubung");
       const before = $("chatSessionSelect").value;
-      fill("chatSessionSelect", sessionsCache, sessionsCache.length ? "Pilih nomor" : "Belum ada nomor");
+      const chatSources = [...sessionsCache, ...archivedSessions];
+      fill("chatSessionSelect", chatSources, chatSources.length ? "Pilih nomor" : "Belum ada nomor");
+      for (const a of archivedSessions) {
+        const opt = $("chatSessionSelect").querySelector(`option[value="${CSS.escape(a.id)}"]`);
+        if (opt) opt.textContent += " - sudah dihapus";
+      }
       if ($("chatSessionSelect").value !== before && $("page-percakapan").classList.contains("active")) loadChats();
     }
 
@@ -1757,6 +1774,7 @@
     showPage(location.hash.slice(1) || "kirim", { focus: false, replace: true });
     refreshSessions();
     loadLimits();
+    loadArchived();
     setInterval(refreshSessions, 5000);
     setInterval(refreshOpenChat, 5000);
     setInterval(refreshChatList, 15000);
