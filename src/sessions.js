@@ -85,7 +85,9 @@ export async function removeSession(id, logger) {
     try { live.sock.end(); } catch {}
   }
   sessions.delete(id);
-  stmts.deleteSession.run(id);
+  // Chats outlive the number: keep the row as an archive when it has any, otherwise drop it.
+  if (stmts.sessionHasMessages.get(id)) stmts.archiveSession.run(id);
+  else stmts.deleteSession.run(id);
   try {
     await rm(authDir(id), { recursive: true, force: true });
   } catch {}

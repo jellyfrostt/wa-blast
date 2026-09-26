@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { mkdirSync } from "fs";
 
-const dbPath = process.env.DB_PATH || "./data/wa-blast.db";
+export const dbPath = process.env.DB_PATH || "./data/wa-blast.db";
 mkdirSync(dbPath.replace(/\/[^/]+$/, ""), { recursive: true });
 
 const db = new Database(dbPath);
@@ -107,11 +107,18 @@ const UNMAPPED_RECIPIENTS = `
 
 export const stmts = {
   insertSession: db.prepare("INSERT INTO sessions (id, name) VALUES (?, ?)"),
-  updateSessionStatus: db.prepare("UPDATE sessions SET status = ?, updated_at = datetime('now') WHERE id = ?"),
-  updateSessionPhone: db.prepare("UPDATE sessions SET phone = ?, status = 'connected', updated_at = datetime('now') WHERE id = ?"),
+  // A removed number keeps its row (status 'removed') so its chats stay readable; late socket
+  // events must not bring it back to life.
+  updateSessionStatus: db.prepare("UPDATE sessions SET status = ?, updated_at = datetime('now') WHERE id = ? AND status != 'removed'"),
+  updateSessionPhone: db.prepare("UPDATE sessions SET phone = ?, status = 'connected', updated_at = datetime('now') WHERE id = ? AND status != 'removed'"),
   getSession: db.prepare("SELECT * FROM sessions WHERE id = ?"),
-  getAllSessions: db.prepare("SELECT * FROM sessions ORDER BY created_at"),
+  getAllSessions: db.prepare("SELECT * FROM sessions WHERE status != 'removed' ORDER BY created_at"),
   deleteSession: db.prepare("DELETE FROM sessions WHERE id = ?"),
+  archiveSession: db.prepare("UPDATE sessions SET status = 'removed', updated_at = datetime('now') WHERE id = ?"),
+  sessionHasMessages: db.prepare("SELECT 1 FROM messages WHERE session_id = ? LIMIT 1"),
+  getArchivedSessions: db.prepare(
+    "SELECT id, name, phone, updated_at AS removed_at FROM sessions WHERE status = 'removed' ORDER BY updated_at DESC"
+  ),
 
   insertMessage: db.prepare(
     "INSERT INTO messages (session_id, jid, direction, content, message_id, status, blast_job_id, sender_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
