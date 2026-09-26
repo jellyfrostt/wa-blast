@@ -10,6 +10,9 @@ import { stmts } from "./db.js";
 import { startBlast, getJobStatus, cancelJob, sendWithRetry } from "./blast.js";
 import { newJobId, recordJobStart, recordJobItem, recordJobFinish } from "./history.js";
 import { formatPhone, displayPhone } from "./phone.js";
+import { startBackups, createSnapshot } from "./backup.js";
+import { timingSafeEqual } from "crypto";
+import { unlink } from "fs/promises";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const logger = pino({ level: process.env.LOG_LEVEL || "info" });
@@ -96,6 +99,11 @@ app.post("/api/sessions", async (req, res) => {
 
 app.get("/api/sessions", (_req, res) => {
   res.json(getAllSessionsList());
+});
+
+// Removed numbers whose chats are kept. Declared before "/:id" so "archived" is not read as an id.
+app.get("/api/sessions/archived", (_req, res) => {
+  res.json(stmts.getArchivedSessions.all());
 });
 
 app.get("/api/sessions/:id", (req, res) => {
@@ -396,10 +404,31 @@ app.post("/api/clear", (req, res) => {
 
 // ─── Start ────────────────────────────────────────────────────────────────
 
+// ─── Database backup download (off-site copies) ───────────────────────────
+// Disabled unless BACKUP_TOKEN is set: the file contains every chat.
+
+app.get("/api/backup", async (req, res) => {
+  const token = process.env.BACKUP_TOKEN;
+  if (!token) return res.status(404).json({ error: "Not found" });
+  const given = Buffer.from(String(req.headers.authorization || "").replace(/^Bearer\s+/i, ""));
+  const expected = Buffer.from(token);
+  if (given.length !== expected.length || !timingSafeEqual(given, expected)) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  try {
+    const file = await createSnapshot();
+    res.download(file, `wa-blast-${new Date().toISOString().slice(0, 10)}.db`, () => unlink(file).catch(() => {}));
+  } catch (err) {
+    logger.error({ err: err.message }, "Backup download failed");
+    res.status(500).json({ error: "Backup gagal dibuat" });
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   logger.info(`WA Blast listening on :${PORT}`);
   restoreSessions(logger).catch((err) => {
     logger.error({ err }, "Failed to restore sessions");
   });
+  startBackups(logger);
 });
