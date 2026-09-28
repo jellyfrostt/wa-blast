@@ -11,6 +11,7 @@ import { startBlast, getJobStatus, cancelJob, sendWithRetry } from "./blast.js";
 import { newJobId, recordJobStart, recordJobItem, recordJobFinish } from "./history.js";
 import { formatPhone, displayPhone } from "./phone.js";
 import { startBackups, createSnapshot } from "./backup.js";
+import { insightsEnabled, insightModel, analyzeChat, chatsNeedingAnalysis } from "./insights.js";
 import { timingSafeEqual } from "crypto";
 import { unlink } from "fs/promises";
 
@@ -23,6 +24,7 @@ app.use(express.json());
 app.use(express.static(join(__dirname, "public")));
 
 const MAX_SESSIONS = Math.max(1, parseInt(process.env.MAX_SESSIONS) || 10);
+const INSIGHT_BATCH = 10;
 const UPLOAD_TTL_MS = 24 * 60 * 60 * 1000;
 const uploads = new Map();
 let lastUploadId = null;
@@ -146,17 +148,129 @@ app.get("/api/sessions/:id/chats", (req, res) => {
   const offset = parseInt(req.query.offset) || 0;
   // Numbers are stored as 62..., so a leading 0 typed by the user is dropped before matching.
   const digits = String(req.query.q || "").replace(/\D/g, "").replace(/^0+/, "");
-  const chats = stmts.getChats.all(req.params.id, `%${digits}%`, limit, offset);
+  const chats = stmts.getChats.all(req.params.id, `%${digits}%`, limit, offset, req.params.id);
   res.json(chats);
 });
+
+// Only conversations this app started (a phone-number chat with at least one message sent from here).
+const isOwnChat = (sessionId, jid) => jid.endsWith("@s.whatsapp.net") && !!stmts.hasOutgoing.get(sessionId, jid);
 
 app.get("/api/sessions/:id/chats/:jid/messages", (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
   const offset = parseInt(req.query.offset) || 0;
-  // Same rule as the chat list: only conversations this app started are readable.
-  if (!req.params.jid.endsWith("@s.whatsapp.net") || !stmts.hasOutgoing.get(req.params.id, req.params.jid)) return res.json([]);
+  if (!isOwnChat(req.params.id, req.params.jid)) return res.json([]);
   const messages = stmts.getMessages.all(req.params.id, req.params.jid, limit, offset);
   res.json(messages);
+});
+
+// Reply inside an existing conversation.
+app.post("/api/sessions/:id/chats/:jid/messages", async (req, res) => {
+  const { id, jid } = req.params;
+  const message = String(req.body?.message ?? "").trim();
+  if (!message) return res.status(400).json({ error: "Pesan masih kosong" });
+  if (!isOwnChat(id, jid)) return res.status(404).json({ error: "Percakapan tidak ditemukan" });
+  if (!getSessionSocket(id)) return res.status(409).json({ error: "Nomor ini sedang tidak terhubung, jadi belum bisa membalas." });
+  try {
+    const result = await sendWithRetry(id, jid, { text: message }, logger);
+    stmts.insertMessage.run(id, jid, "outgoing", message, result?.key?.id || null, "sent", null, null);
+    res.json({ ok: true, messageId: result?.key?.id || null });
+  } catch (err) {
+    logger.error({ sessionId: id, err: err.message }, "Reply failed");
+    res.status(500).json({ error: "Pesan gagal terkirim. Coba lagi sebentar lagi." });
+  }
+});
+
+// ─── Transcripts (export for analysis) ───────────────────────────────────
+
+const EXCEL_BOM = String.fromCharCode(0xfeff); // lets Excel read the file as UTF-8
+const csvCell = (v) => {
+  let s = String(v ?? "");
+  // Keep spreadsheet apps from running customer text as a formula; plain phone numbers are left as they are.
+  if (/^[=+\-@\t\r]/.test(s) && !/^\+\d+$/.test(s)) s = `'${s}`;
+  return `"${s.replace(/"/g, '""')}"`;
+};
+
+app.get("/api/sessions/:id/transcripts", (req, res) => {
+  const session = stmts.getSession.get(req.params.id);
+  if (!session) return res.status(404).json({ error: "Nomor tidak ditemukan" });
+  const rows = stmts.transcriptRows.all(session.id, session.id);
+  const phoneOf = (jid) => `+${jid.split("@")[0]}`;
+  const stamp = new Date().toISOString().slice(0, 10);
+  const base = `transkrip-${String(session.name).replace(/[^\w-]+/g, "_")}-${stamp}`;
+
+  if (req.query.format === "csv") {
+    const lines = [["nomor_pengirim", "nama_pengirim", "nomor_pelanggan", "nama_pelanggan", "arah", "isi_pesan", "status", "waktu_utc"]];
+    const names = new Map();
+    for (const r of rows) if (r.sender_name && !names.has(r.jid)) names.set(r.jid, r.sender_name);
+    for (const r of rows) {
+      lines.push([
+        session.phone ? `+${session.phone}` : "", session.name, phoneOf(r.jid), names.get(r.jid) || "",
+        r.direction === "outgoing" ? "keluar" : "masuk", r.content, r.status, r.created_at,
+      ]);
+    }
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${base}.csv"`);
+    return res.send(EXCEL_BOM + lines.map((l) => l.map(csvCell).join(",")).join("\r\n") + "\r\n");
+  }
+
+  const conversations = [];
+  let current = null;
+  for (const r of rows) {
+    if (!current || current.jid !== r.jid) {
+      current = { jid: r.jid, phone: phoneOf(r.jid), contact_name: null, insight: null, messages: [] };
+      conversations.push(current);
+    }
+    if (r.sender_name && !current.contact_name) current.contact_name = r.sender_name;
+    current.messages.push({ direction: r.direction, content: r.content, status: r.status, at: r.created_at });
+  }
+  for (const c of conversations) {
+    const i = stmts.getInsight.get(session.id, c.jid);
+    if (i) c.insight = { intent: i.intent, level: i.level, summary: i.summary, profile: i.profile, next_step: i.next_step, analyzed_at: i.analyzed_at };
+    delete c.jid;
+  }
+  res.setHeader("Content-Disposition", `attachment; filename="${base}.json"`);
+  res.json({
+    session: { id: session.id, name: session.name, phone: session.phone ? `+${session.phone}` : null },
+    exported_at: new Date().toISOString(),
+    conversations,
+  });
+});
+
+// ─── Customer-intent analysis (Claude) ───────────────────────────────────
+
+app.get("/api/insights/status", (_req, res) => {
+  res.json({ enabled: insightsEnabled(), model: insightsEnabled() ? insightModel() : null });
+});
+
+app.post("/api/sessions/:id/chats/:jid/insight", async (req, res) => {
+  const { id, jid } = req.params;
+  if (!insightsEnabled()) return res.status(503).json({ error: "Analisis AI belum diaktifkan oleh admin." });
+  if (!isOwnChat(id, jid)) return res.status(404).json({ error: "Percakapan tidak ditemukan" });
+  try {
+    res.json(await analyzeChat(id, jid));
+  } catch (err) {
+    logger.warn({ sessionId: id, err: err.message }, "Chat analysis failed");
+    const known = /belum membalas|belum diaktifkan/.test(err.message);
+    res.status(known ? 400 : 502).json({ error: known ? err.message : "Analisis gagal. Coba lagi sebentar lagi." });
+  }
+});
+
+// Analyze conversations that have a customer reply and no up-to-date analysis, a few per call.
+app.post("/api/sessions/:id/insights", async (req, res) => {
+  if (!insightsEnabled()) return res.status(503).json({ error: "Analisis AI belum diaktifkan oleh admin." });
+  const pending = chatsNeedingAnalysis(req.params.id);
+  const batch = pending.slice(0, INSIGHT_BATCH);
+  let analyzed = 0, failed = 0;
+  for (const jid of batch) {
+    try {
+      await analyzeChat(req.params.id, jid);
+      analyzed++;
+    } catch (err) {
+      failed++;
+      logger.warn({ sessionId: req.params.id, err: err.message }, "Chat analysis failed");
+    }
+  }
+  res.json({ analyzed, failed, remaining: pending.length - batch.length });
 });
 
 // ─── Disconnect ──────────────────────────────────────────────────────────
