@@ -210,6 +210,12 @@
     .chat-item .row2 { display: block; color: var(--c-muted-fg); font-size: 14px; }
     .chat-pane { display: flex; flex-direction: column; min-width: 0; }
     .chat-pane-head { padding: 12px 16px; border-bottom: 1px solid var(--c-border); font-weight: 600; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .insight-box { padding: 12px 16px; border-bottom: 1px solid var(--c-border); background: var(--c-bg); font-size: 15px; }
+    .insight-box p { margin-top: 6px; max-width: 70ch; }
+    .insight-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .chat-compose { display: flex; gap: 8px; align-items: flex-end; padding: 12px; border-top: 1px solid var(--c-border); }
+    .chat-compose textarea { min-height: 48px; height: 48px; flex: 1; }
+    .chat-compose-off { padding: 12px 16px; border-top: 1px solid var(--c-border); color: var(--c-muted-fg); font-size: 14px; }
     .live-note { display: inline-flex; align-items: center; gap: 6px; font-weight: 400; font-size: 13px; color: var(--c-muted-fg); }
     .chat-msgs { flex: 1; max-height: 540px; overflow-y: auto; padding: 16px; background: #EFEAE2; display: flex; flex-direction: column; gap: 8px; }
     .msg { max-width: 78%; padding: 8px 12px; border-radius: 10px; color: #111B21; }
@@ -480,13 +486,19 @@
         <section class="page" id="page-percakapan">
           <header class="page-head">
             <h1 tabindex="-1">Percakapan</h1>
-            <p>Obrolan dengan nomor yang dikirimi pesan dari aplikasi ini, mulai dari pesan pertama yang dikirim sampai yang terbaru, termasuk yang diketik langsung dari HP. Grup dan chat dengan nomor lain tidak direkam. Halaman ini hanya untuk melihat, belum bisa membalas.</p>
+            <p>Obrolan dengan nomor yang dikirimi pesan dari aplikasi ini, mulai dari pesan pertama yang dikirim sampai yang terbaru, termasuk yang diketik langsung dari HP. Grup dan chat dengan nomor lain tidak direkam. Kamu juga bisa membalas dari sini.</p>
           </header>
           <div class="card">
             <div class="field" style="margin-bottom:0">
               <label for="chatSessionSelect">Tampilkan percakapan dari nomor</label>
               <select id="chatSessionSelect"></select>
             </div>
+            <div class="btn-row" style="margin-top:16px">
+              <button type="button" class="btn btn-outline" data-action="transcript" data-format="csv">Unduh transkrip (Excel)</button>
+              <button type="button" class="btn btn-outline" data-action="transcript" data-format="json">Unduh transkrip (JSON)</button>
+              <button type="button" class="btn btn-outline" data-action="insight-all" id="insightAllBtn" hidden>Analisis minat semua percakapan</button>
+            </div>
+            <p class="hint" id="insightAllStatus" aria-live="polite"></p>
           </div>
           <div id="chatsWrap"></div>
         </section>
@@ -549,6 +561,9 @@
 
             <h2>Melihat hasil</h2>
             <details><summary>Apa arti Terkirim, Diterima, dan Dibaca?</summary><div class="answer"><ul><li><strong>Terkirim</strong>: pesan sudah keluar dari nomor pengirim (centang satu).</li><li><strong>Diterima</strong>: pesan sudah sampai di HP penerima (centang dua).</li><li><strong>Dibaca</strong>: penerima sudah membuka pesannya (centang biru). Tidak muncul kalau penerima mematikan laporan dibaca.</li></ul></div></details>
+            <details><summary>Bisakah membalas pelanggan dari sini?</summary><div class="answer"><p>Bisa. Buka menu Percakapan, pilih nomornya, klik percakapannya, lalu tulis balasan di kotak bawah dan klik <strong>Kirim</strong>. Balasan hanya bisa dikirim ke nomor yang sudah pernah dikirimi pesan dari aplikasi ini, dan nomornya harus sedang terhubung.</p></div></details>
+            <details><summary>Bagaimana cara mengambil data percakapan untuk diolah?</summary><div class="answer"><p>Di menu Percakapan, pilih nomornya lalu klik <strong>Unduh transkrip (Excel)</strong>. Filenya berisi semua percakapan nomor itu: nomor pelanggan, arah pesan, isi, status, dan waktunya. Ada juga pilihan JSON untuk tim data.</p></div></details>
+            <details><summary>Apa itu "Analisis minat pelanggan"?</summary><div class="answer"><p>Fitur yang memakai AI untuk membaca satu percakapan dan memberi penilaian: apakah pelanggan mau jual LM, beli LM, tidak tertarik, atau belum jelas; seberapa kuat minatnya; ringkasan; dan saran tindak lanjut. Hasilnya adalah perkiraan, jadi tetap baca percakapannya sebelum mengambil keputusan.</p><p>Tombolnya hanya muncul kalau fitur ini sudah diaktifkan admin. Saat dipakai, isi percakapan dikirim ke layanan AI (Claude dari Anthropic) untuk dianalisis.</p></div></details>
             <details><summary>Apa bedanya Riwayat dan Percakapan?</summary><div class="answer"><p><strong>Riwayat</strong> mencatat tiap pengiriman: kapan, dari nomor mana, isi pesannya, dan dikirim ke siapa saja.</p><p><strong>Percakapan</strong> menampilkan obrolan per nomor tujuan secara langsung: pesan yang dikirim, balasannya, dan obrolan sesudahnya selama nomor terhubung.</p></div></details>
             <details><summary>Kalau nomor dihapus dari aplikasi, apakah percakapannya ikut hilang?</summary><div class="answer"><p>Tidak. Percakapan dan riwayat pengirimannya tetap tersimpan. Di menu Percakapan, nomor itu masih bisa dipilih dengan keterangan "sudah dihapus".</p><p>Kalau nomor yang sama dihubungkan lagi, percakapan barunya tercatat terpisah dari yang lama.</p></div></details>
             <details><summary>Apakah semua chat WhatsApp di nomor saya ikut terlihat di sini?</summary><div class="answer"><p>Tidak semuanya. Yang direkam hanya obrolan dengan nomor yang pernah dikirimi pesan dari aplikasi ini. Untuk nomor itu, obrolannya terekam terus mulai dari pesan pertama yang dikirim: balasan mereka, topik lain sesudahnya, dan pesan yang kamu ketik langsung dari HP.</p><p>Grup dan chat dengan nomor yang tidak pernah dikirimi pesan dari sini tidak direkam dan tidak ditampilkan.</p><p>Catatan: WhatsApp kadang menyembunyikan nomor pengirim. Aplikasi akan mencocokkannya dengan nomor tujuan; kalau belum berhasil, pesannya belum muncul di sini.</p></div></details>
@@ -581,6 +596,9 @@
     const PAGES = ["kirim", "nomor", "cepat", "percakapan", "riwayat", "bantuan"];
     const FINAL = ["done", "cancelled", "error_stopped", "banned"];
     const ITEM_LABEL = { sent: "Terkirim", delivered: "Diterima", read: "Dibaca", failed: "Gagal", skipped: "Dilewati", pending: "Menunggu" };
+    const INTENT_LABEL = { jual_lm: "Mau jual LM", beli_lm: "Mau beli LM", jual_dan_beli: "Mau jual dan beli LM", tidak_tertarik: "Tidak tertarik", belum_jelas: "Belum jelas" };
+    const LEVEL_LABEL = { tinggi: "Minat tinggi", sedang: "Minat sedang", rendah: "Minat rendah" };
+    const LEVEL_BADGE = { tinggi: "success", sedang: "info", rendah: "" };
     const ITEM_BADGE = { sent: "success", delivered: "info", read: "read", failed: "danger", skipped: "warn" };
     const JOB_LABEL = { running: "Sedang berjalan", done: "Selesai", cancelled: "Dihentikan", error_stopped: "Berhenti karena banyak gagal", banned: "Berhenti, nomor diblokir", interrupted: "Terputus" };
     const JOB_BADGE = { running: "info", done: "success", cancelled: "warn", interrupted: "warn", error_stopped: "danger", banned: "danger" };
@@ -590,6 +608,8 @@
     let firstLoad = true;
     let maxSessions = null;
     let archivedSessions = [];
+    let insightsOn = false;
+    const chatCache = new Map();
     let columns = [];
     let contactCount = 0;
     let uploadId = null;
@@ -1387,8 +1407,30 @@
         <span class="row1"><span class="num">${esc(title)}</span><time>${esc(formatTime(c.last_message_at))}</time></span>
         ${sub ? `<span class="row2">${esc(sub)}</span>` : ""}
         <span class="row2">${c.sent_count} dikirim, ${c.received_count} balasan${c.read_count ? `, ${c.read_count} dibaca` : ""}</span>
+        ${c.insight_intent ? `<span class="row2" style="margin-top:4px">${badge(INTENT_LABEL[c.insight_intent] || c.insight_intent, LEVEL_BADGE[c.insight_level])} ${badge(LEVEL_LABEL[c.insight_level] || c.insight_level)}</span>` : ""}
       </button>`;
     };
+
+    function renderInsight(c) {
+      if (!c) return "";
+      const redo = insightsOn ? `<button type="button" class="btn btn-outline" data-action="insight-one">${c.insight_intent ? "Analisis ulang" : "Analisis minat pelanggan"}</button>` : "";
+      if (!c.insight_intent) {
+        if (!insightsOn) return "";
+        return `<div class="insight-box"><div class="insight-top"><span>Minat pelanggan belum dianalisis.</span>${c.received_count ? redo : `<span class="hint" style="margin:0">Menunggu balasan pelanggan dulu.</span>`}</div></div>`;
+      }
+      const stale = c.insight_message_count !== c.message_count;
+      return `<div class="insight-box">
+        <div class="insight-top">
+          ${badge(INTENT_LABEL[c.insight_intent] || c.insight_intent, LEVEL_BADGE[c.insight_level])}
+          ${badge(LEVEL_LABEL[c.insight_level] || c.insight_level)}
+          <span class="hint" style="margin:0">Dianalisis AI ${esc(formatTime(c.insight_at))}${stale ? ", ada pesan baru sejak itu" : ""}</span>
+          ${redo}
+        </div>
+        ${c.insight_summary ? `<p>${esc(c.insight_summary)}</p>` : ""}
+        ${c.insight_profile ? `<p><strong>Kebutuhan pelanggan:</strong> ${esc(c.insight_profile)}</p>` : ""}
+        ${c.insight_next_step ? `<p><strong>Saran tindak lanjut:</strong> ${esc(c.insight_next_step)}</p>` : ""}
+      </div>`;
+    }
 
     function fetchChatPage() {
       const { sessionId, q, offset } = chatState;
@@ -1405,6 +1447,7 @@
         list.innerHTML = `<p class="hint" style="padding:16px">Tidak ada nomor yang cocok dengan pencarian itu.</p>`;
         return;
       }
+      for (const c of chats) chatCache.set(c.jid, c);
       list.insertAdjacentHTML("beforeend", chats.map(renderChatItem).join("") +
         (chats.length >= CHAT_PAGE ? `<div class="list-more"><button type="button" class="btn btn-outline" data-action="chats-more">Tampilkan lebih banyak</button></div>` : ""));
       if (activeChat) list.querySelectorAll(".chat-item").forEach((c) => c.classList.toggle("active", c.dataset.jid === activeChat.jid));
@@ -1486,7 +1529,10 @@
       document.querySelectorAll(".chat-item").forEach((c) => c.classList.toggle("active", c === btn));
       const chat = activeChat = { sessionId, jid, offset: 0, sig: "", lastId: 0 };
       const pane = $("chatPane");
-      pane.innerHTML = `<div class="chat-pane-head"><span class="num">${esc(btn.dataset.title)}</span><span class="live-note"><span class="dot ok"></span>Pesan baru muncul otomatis</span></div><div class="chat-msgs" id="chatMsgs" aria-live="polite"><p class="hint">Memuat pesan...</p></div>`;
+      pane.innerHTML = `<div class="chat-pane-head"><span class="num">${esc(btn.dataset.title)}</span><span class="live-note"><span class="dot ok"></span>Pesan baru muncul otomatis</span></div><div id="insightBox">${renderInsight(chatCache.get(jid))}</div><div class="chat-msgs" id="chatMsgs" aria-live="polite"><p class="hint">Memuat pesan...</p></div>` +
+        (sessionById(sessionId)?.connected
+          ? `<form class="chat-compose" id="chatCompose"><label class="sr-only" for="chatReply">Tulis balasan</label><textarea id="chatReply" placeholder="Tulis balasan, lalu klik Kirim" maxlength="4000"></textarea><button type="submit" class="btn btn-accent" id="chatReplyBtn">Kirim</button></form>`
+          : `<div class="chat-compose-off">Nomor ini sedang tidak terhubung, jadi belum bisa membalas dari sini.</div>`);
       try {
         const msgs = await latestMsgs(chat);
         if (chat !== activeChat) return;
@@ -1538,6 +1584,81 @@
       } catch {
         chatState.offset = before;
       }
+    }
+
+    async function sendReply(e) {
+      e.preventDefault();
+      const chat = activeChat;
+      const input = $("chatReply");
+      const message = input.value.trim();
+      if (!chat) return;
+      if (!message) { toast("Balasannya masih kosong.", "error"); input.focus(); return; }
+      const btn = $("chatReplyBtn");
+      btn.disabled = true;
+      btn.textContent = "Mengirim...";
+      try {
+        await postJson(`/api/sessions/${encodeURIComponent(chat.sessionId)}/chats/${encodeURIComponent(chat.jid)}/messages`, { message });
+        if (chat === activeChat) input.value = "";
+        await refreshOpenChat();
+        const box = $("chatMsgs");
+        if (box) box.scrollTop = box.scrollHeight;
+      } catch (err) {
+        toast(err.message, "error");
+      }
+      if ($("chatReplyBtn")) { $("chatReplyBtn").disabled = false; $("chatReplyBtn").textContent = "Kirim"; }
+    }
+
+    async function analyzeOpenChat(btn) {
+      const chat = activeChat;
+      if (!chat) return;
+      btn.disabled = true;
+      btn.textContent = "Menganalisis...";
+      try {
+        const i = await api(`/api/sessions/${encodeURIComponent(chat.sessionId)}/chats/${encodeURIComponent(chat.jid)}/insight`, { method: "POST" });
+        const c = chatCache.get(chat.jid);
+        if (c) Object.assign(c, { insight_intent: i.intent, insight_level: i.level, insight_summary: i.summary, insight_profile: i.profile, insight_next_step: i.next_step, insight_at: i.analyzed_at, insight_message_count: i.message_count, message_count: i.message_count });
+        if (chat === activeChat && $("insightBox")) $("insightBox").innerHTML = renderInsight(c);
+        refreshChatList();
+        toast("Analisis selesai.", "success");
+      } catch (err) {
+        toast(err.message, "error");
+        btn.disabled = false;
+        btn.textContent = "Coba analisis lagi";
+      }
+    }
+
+    async function analyzeAllChats(btn) {
+      const sessionId = $("chatSessionSelect").value;
+      if (!sessionId) { toast("Pilih dulu nomornya.", "error"); return; }
+      btn.disabled = true;
+      const status = $("insightAllStatus");
+      let done = 0, failed = 0;
+      try {
+        for (let round = 0; round < 30; round++) {
+          status.textContent = `Menganalisis percakapan... ${done} selesai`;
+          const r = await api(`/api/sessions/${encodeURIComponent(sessionId)}/insights`, { method: "POST" });
+          done += r.analyzed;
+          failed += r.failed;
+          if (!r.remaining || !r.analyzed) break;
+        }
+        status.textContent = done || failed ? `${done} percakapan dianalisis${failed ? `, ${failed} gagal` : ""}.` : "Tidak ada percakapan baru yang perlu dianalisis.";
+        refreshChatList();
+      } catch (err) {
+        status.textContent = "";
+        toast(err.message, "error");
+      }
+      btn.disabled = false;
+    }
+
+    function downloadTranscript(format) {
+      const sessionId = $("chatSessionSelect").value;
+      if (!sessionId) { toast("Pilih dulu nomornya.", "error"); $("chatSessionSelect").focus(); return; }
+      location.href = `/api/sessions/${encodeURIComponent(sessionId)}/transcripts?format=${format}`;
+    }
+
+    async function loadInsightStatus() {
+      try { insightsOn = !!(await api("/api/insights/status")).enabled; } catch {}
+      $("insightAllBtn").hidden = !insightsOn;
     }
 
     async function loadMoreMsgs(btn) {
@@ -1743,6 +1864,9 @@
         case "chat-open": openChat(el); break;
         case "chat-more": loadMoreMsgs(el); break;
         case "chats-more": loadMoreChats(el); break;
+        case "insight-one": analyzeOpenChat(el); break;
+        case "insight-all": analyzeAllChats(el); break;
+        case "transcript": downloadTranscript(el.dataset.format); break;
         case "history-older": loadOlderHistory(el); break;
         case "history-refresh": loadHistory().then(() => toast("Riwayat dimuat ulang.")); break;
         case "history-toggle": toggleHistory(card); break;
@@ -1755,6 +1879,8 @@
       if (e.target.id === "chatSessionSelect") loadChats();
     });
     document.addEventListener("input", (e) => { if (e.target.id === "chatSearch") onChatSearch(); });
+    document.addEventListener("submit", (e) => { if (e.target.id === "chatCompose") sendReply(e); });
+    document.addEventListener("keydown", (e) => { if (e.target.id === "chatReply" && e.key === "Enter" && (e.ctrlKey || e.metaKey)) $("chatCompose").requestSubmit(); });
     $("template").addEventListener("input", onTemplateInput);
     $("delayMin").addEventListener("input", renderReview);
     $("delayMax").addEventListener("input", renderReview);
@@ -1775,6 +1901,7 @@
     refreshSessions();
     loadLimits();
     loadArchived();
+    loadInsightStatus();
     setInterval(refreshSessions, 5000);
     setInterval(refreshOpenChat, 5000);
     setInterval(refreshChatList, 15000);
