@@ -63,6 +63,21 @@ db.exec(`
     FOREIGN KEY (job_id) REFERENCES send_jobs(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS chat_insights (
+    session_id TEXT NOT NULL,
+    jid TEXT NOT NULL,
+    intent TEXT NOT NULL,
+    level TEXT NOT NULL,
+    summary TEXT,
+    profile TEXT,
+    next_step TEXT,
+    model TEXT,
+    message_count INTEGER NOT NULL DEFAULT 0,
+    analyzed_at TEXT NOT NULL,
+    PRIMARY KEY (session_id, jid),
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+  );
+
   CREATE TABLE IF NOT EXISTS lid_map (
     session_id TEXT NOT NULL,
     lid TEXT NOT NULL,
@@ -127,16 +142,50 @@ export const stmts = {
     "UPDATE messages SET status = ?, updated_at = datetime('now') WHERE message_id = ? AND session_id = ?"
   ),
   getChats: db.prepare(`
-    SELECT jid,
-      MAX(created_at) as last_message_at,
-      MAX(CASE WHEN direction = 'incoming' THEN sender_name END) as contact_name,
-      COUNT(*) as message_count,
-      SUM(CASE WHEN direction = 'outgoing' THEN 1 ELSE 0 END) as sent_count,
-      SUM(CASE WHEN direction = 'incoming' THEN 1 ELSE 0 END) as received_count,
-      SUM(CASE WHEN direction = 'outgoing' AND status = 'read' THEN 1 ELSE 0 END) as read_count,
-      SUM(CASE WHEN direction = 'outgoing' AND status = 'delivered' THEN 1 ELSE 0 END) as delivered_count
-    FROM messages WHERE session_id = ? AND jid LIKE ? AND jid LIKE '%@s.whatsapp.net'
-    GROUP BY jid HAVING sent_count > 0 ORDER BY last_message_at DESC, jid LIMIT ? OFFSET ?
+    SELECT c.*,
+      i.intent AS insight_intent, i.level AS insight_level, i.summary AS insight_summary,
+      i.profile AS insight_profile, i.next_step AS insight_next_step,
+      i.analyzed_at AS insight_at, i.message_count AS insight_message_count
+    FROM (
+      SELECT jid,
+        MAX(created_at) as last_message_at,
+        MAX(CASE WHEN direction = 'incoming' THEN sender_name END) as contact_name,
+        COUNT(*) as message_count,
+        SUM(CASE WHEN direction = 'outgoing' THEN 1 ELSE 0 END) as sent_count,
+        SUM(CASE WHEN direction = 'incoming' THEN 1 ELSE 0 END) as received_count,
+        SUM(CASE WHEN direction = 'outgoing' AND status = 'read' THEN 1 ELSE 0 END) as read_count,
+        SUM(CASE WHEN direction = 'outgoing' AND status = 'delivered' THEN 1 ELSE 0 END) as delivered_count
+      FROM messages WHERE session_id = ? AND jid LIKE ? AND jid LIKE '%@s.whatsapp.net'
+      GROUP BY jid HAVING sent_count > 0 ORDER BY last_message_at DESC, jid LIMIT ? OFFSET ?
+    ) c
+    LEFT JOIN chat_insights i ON i.session_id = ? AND i.jid = c.jid
+    ORDER BY c.last_message_at DESC, c.jid
+  `),
+  // Conversations this app started, oldest message first: the raw material for exports and analysis.
+  transcriptRows: db.prepare(`
+    SELECT jid, direction, content, status, sender_name, created_at FROM messages
+    WHERE session_id = ? AND jid LIKE '%@s.whatsapp.net'
+      AND jid IN (SELECT DISTINCT jid FROM messages WHERE session_id = ? AND direction = 'outgoing')
+    ORDER BY jid, created_at, id
+  `),
+  recentMessages: db.prepare(`
+    SELECT * FROM (
+      SELECT id, direction, content, created_at FROM messages
+      WHERE session_id = ? AND jid = ? ORDER BY created_at DESC, id DESC LIMIT ?
+    ) ORDER BY created_at, id
+  `),
+  chatCounts: db.prepare(`
+    SELECT jid, COUNT(*) AS n, SUM(direction = 'incoming') AS incoming, SUM(direction = 'outgoing') AS outgoing
+    FROM messages WHERE session_id = ? AND jid LIKE '%@s.whatsapp.net' GROUP BY jid
+  `),
+  getInsight: db.prepare("SELECT * FROM chat_insights WHERE session_id = ? AND jid = ?"),
+  getInsights: db.prepare("SELECT jid, message_count FROM chat_insights WHERE session_id = ?"),
+  upsertInsight: db.prepare(`
+    INSERT INTO chat_insights (session_id, jid, intent, level, summary, profile, next_step, model, message_count, analyzed_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(session_id, jid) DO UPDATE SET intent = excluded.intent, level = excluded.level,
+      summary = excluded.summary, profile = excluded.profile, next_step = excluded.next_step,
+      model = excluded.model, message_count = excluded.message_count, analyzed_at = excluded.analyzed_at
   `),
   getMessages: db.prepare(
     "SELECT * FROM messages WHERE session_id = ? AND jid = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?"
