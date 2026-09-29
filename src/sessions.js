@@ -38,8 +38,19 @@ export function getAllSessionsList() {
       connected: live?.sock?.user != null,
       phone: live?.sock?.user?.id?.replace(/:.*/, "") || r.phone,
       hasQr: !!live?.qr,
+      canReconnect: !!live?.gaveUp,
     };
   });
+}
+
+// Start connecting again after the automatic retries have been used up.
+export async function reconnectSession(id, logger) {
+  const live = sessions.get(id);
+  if (!live) throw new Error("Nomor tidak ditemukan");
+  if (!live.gaveUp) throw new Error("Nomor ini masih terhubung atau sedang mencoba menyambung sendiri.");
+  live.reconnectAttempt = 0;
+  logger.info({ sessionId: id }, "Manual reconnect requested");
+  await initSession(id, logger);
 }
 
 export function getSessionSocket(id) {
@@ -108,6 +119,7 @@ export async function requestSessionPairingCode(id, phoneNumber, logger) {
 async function initSession(sessionId, logger) {
   const session = sessions.get(sessionId);
   if (!session) return;
+  session.gaveUp = false;
 
   const dir = authDir(sessionId);
   if (!existsSync(dir)) await mkdir(dir, { recursive: true });
@@ -240,6 +252,7 @@ async function initSession(sessionId, logger) {
         logConnection(session, "max_reconnect", { attempt: session.reconnectAttempt });
         logger.error({ sessionId }, "Max reconnect attempts (8) — stopping");
         session.sock = null;
+        session.gaveUp = true;
         return;
       }
 

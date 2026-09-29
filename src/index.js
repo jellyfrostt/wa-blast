@@ -5,7 +5,7 @@ import { parse } from "csv-parse/sync";
 import * as XLSX from "xlsx";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { restoreSessions, getAllSessionsList, getSession, getSessionSocket, getSessionQr, getSessionConnectionLog, createSession, removeSession, requestSessionPairingCode } from "./sessions.js";
+import { restoreSessions, getAllSessionsList, getSession, getSessionSocket, getSessionQr, getSessionConnectionLog, createSession, removeSession, requestSessionPairingCode, reconnectSession } from "./sessions.js";
 import { stmts } from "./db.js";
 import { startBlast, getJobStatus, cancelJob, sendWithRetry } from "./blast.js";
 import { newJobId, recordJobStart, recordJobItem, recordJobFinish } from "./history.js";
@@ -25,6 +25,21 @@ app.use(express.static(join(__dirname, "public")));
 
 const MAX_SESSIONS = Math.max(1, parseInt(process.env.MAX_SESSIONS) || 10);
 const INSIGHT_BATCH = 10;
+const MAX_QUICK_COUNT = 200;
+const MAX_DELAY_SECONDS = 600;
+
+const escapeHtml = (v) => String(v ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+
+// Delays arrive from the browser; keep them numeric, ordered and within a sane range.
+function readDelays(min, max, fallbackMin, fallbackMax) {
+  const num = (v, fb) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.min(Math.max(n, 0), MAX_DELAY_SECONDS) : fb;
+  };
+  const a = Math.round(num(min, fallbackMin));
+  const b = Math.round(num(max, fallbackMax));
+  return a <= b ? [a, b] : [b, a];
+}
 const UPLOAD_TTL_MS = 24 * 60 * 60 * 1000;
 const uploads = new Map();
 let lastUploadId = null;
@@ -66,7 +81,7 @@ app.get("/qr", (_req, res) => {
   if (withQr.length > 0) {
     for (const s of withQr) {
       const qr = getSessionQr(s.id);
-      if (qr) html += `<h3>${s.name}</h3><img src="${qr}" style="width:250px;height:250px"/>`;
+      if (qr) html += `<h3>${escapeHtml(s.name)}</h3><img src="${qr}" style="width:250px;height:250px"/>`;
     }
     html += `<p>WhatsApp &rarr; Linked Devices &rarr; Link a Device</p>`;
   } else if (sessions.length > 0) {
@@ -118,10 +133,20 @@ app.get("/api/sessions/:id", (req, res) => {
 
 app.delete("/api/sessions/:id", async (req, res) => {
   try {
+    cancelJob(req.params.id);
     await removeSession(req.params.id, logger);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/sessions/:id/reconnect", async (req, res) => {
+  try {
+    await reconnectSession(req.params.id, logger);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(409).json({ error: err.message });
   }
 });
 
@@ -279,6 +304,7 @@ app.post("/api/disconnect", async (req, res) => {
   const sessionId = req.body.sessionId || getDefaultSessionId();
   if (!sessionId) return res.status(400).json({ error: "Tidak ada session" });
   try {
+    cancelJob(sessionId);
     await removeSession(sessionId, logger);
     res.json({ ok: true, message: "Disconnected. Buat session baru untuk reconnect." });
   } catch (err) {
@@ -291,9 +317,12 @@ app.post("/api/disconnect", async (req, res) => {
 function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
 app.post("/api/quick-send", async (req, res) => {
-  const { phone, message, count = 1, delayMin = 3, delayMax = 8, sessionId: reqSessionId } = req.body;
+  const { phone, message, sessionId: reqSessionId } = req.body;
+  const count = Math.floor(Number(req.body.count ?? 1));
+  const [delayMin, delayMax] = readDelays(req.body.delayMin, req.body.delayMax, 3, 8);
   if (!phone || !message) return res.status(400).json({ error: "phone dan message wajib" });
-  if (count < 1) return res.status(400).json({ error: "count harus minimal 1" });
+  if (!Number.isFinite(count) || count < 1) return res.status(400).json({ error: "count harus minimal 1" });
+  if (count > MAX_QUICK_COUNT) return res.status(400).json({ error: `Paling banyak ${MAX_QUICK_COUNT} kali kirim sekaligus.` });
 
   const sessionId = reqSessionId || getDefaultSessionId();
   if (!sessionId) return res.status(503).json({ error: "Tidak ada session aktif" });
@@ -444,7 +473,8 @@ app.post("/api/send", async (req, res) => {
 // ─── Start blast ──────────────────────────────────────────────────────────
 
 app.post("/api/blast", (req, res) => {
-  const { template, delayMin = 3, delayMax = 7, sessionId: reqSessionId, uploadId } = req.body;
+  const { template, sessionId: reqSessionId, uploadId } = req.body;
+  const [delayMin, delayMax] = readDelays(req.body.delayMin, req.body.delayMax, 3, 7);
   const upload = getUpload(uploadId);
   if (!upload) return res.status(400).json({ error: "Upload kontak dulu" });
   if (!template) return res.status(400).json({ error: "Template kosong" });
@@ -473,7 +503,7 @@ app.get("/api/blast/:jobId/stats", (req, res) => {
 app.get("/api/status", (req, res) => {
   const job = getJobStatus(req.query.sessionId);
   if (!job) return res.json({ status: "idle" });
-  res.json(job);
+  res.json({ ...job, results: job.results.slice(-100) });
 });
 
 // ─── Cancel blast ─────────────────────────────────────────────────────────
