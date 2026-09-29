@@ -1,8 +1,9 @@
 import Database from "better-sqlite3";
 import { mkdirSync } from "fs";
+import { dirname } from "path";
 
 export const dbPath = process.env.DB_PATH || "./data/wa-blast.db";
-mkdirSync(dbPath.replace(/\/[^/]+$/, ""), { recursive: true });
+mkdirSync(dirname(dbPath), { recursive: true });
 
 const db = new Database(dbPath);
 db.pragma("journal_mode = WAL");
@@ -96,13 +97,13 @@ db.exec(`
 // they get a short grace period; contacts.js merges or deletes them.
 db.prepare(`
   DELETE FROM messages WHERE direction = 'incoming' AND jid NOT LIKE '%@lid' AND NOT EXISTS (
-    SELECT 1 FROM messages o WHERE o.session_id = messages.session_id AND o.jid = messages.jid AND o.direction = 'outgoing'
+    SELECT 1 FROM messages o WHERE o.session_id = messages.session_id AND o.jid = messages.jid AND o.direction = 'outgoing' AND o.status != 'failed'
   )
 `).run();
 db.prepare("DELETE FROM messages WHERE jid LIKE '%@lid' AND created_at < datetime('now', '-3 days')").run();
 db.prepare(`
   DELETE FROM lid_map WHERE NOT EXISTS (
-    SELECT 1 FROM messages o WHERE o.session_id = lid_map.session_id AND o.jid = lid_map.pn AND o.direction = 'outgoing'
+    SELECT 1 FROM messages o WHERE o.session_id = lid_map.session_id AND o.jid = lid_map.pn AND o.direction = 'outgoing' AND o.status != 'failed'
   )
 `).run();
 
@@ -116,7 +117,7 @@ export default db;
 // Numbers this session sent to in the last 14 days whose hidden id is not known yet.
 const UNMAPPED_RECIPIENTS = `
   SELECT DISTINCT m.jid FROM messages m
-  WHERE m.session_id = ? AND m.direction = 'outgoing' AND m.jid LIKE '%@s.whatsapp.net'
+  WHERE m.session_id = ? AND m.direction = 'outgoing' AND m.status != 'failed' AND m.jid LIKE '%@s.whatsapp.net'
     AND m.created_at >= datetime('now', '-14 days')
     AND NOT EXISTS (SELECT 1 FROM lid_map l WHERE l.session_id = m.session_id AND l.pn = m.jid)`;
 
@@ -151,7 +152,7 @@ export const stmts = {
         MAX(created_at) as last_message_at,
         MAX(CASE WHEN direction = 'incoming' THEN sender_name END) as contact_name,
         COUNT(*) as message_count,
-        SUM(CASE WHEN direction = 'outgoing' THEN 1 ELSE 0 END) as sent_count,
+        SUM(CASE WHEN direction = 'outgoing' AND status != 'failed' THEN 1 ELSE 0 END) as sent_count,
         SUM(CASE WHEN direction = 'incoming' THEN 1 ELSE 0 END) as received_count,
         SUM(CASE WHEN direction = 'outgoing' AND status = 'read' THEN 1 ELSE 0 END) as read_count,
         SUM(CASE WHEN direction = 'outgoing' AND status = 'delivered' THEN 1 ELSE 0 END) as delivered_count
@@ -165,7 +166,7 @@ export const stmts = {
   transcriptRows: db.prepare(`
     SELECT jid, direction, content, status, sender_name, created_at FROM messages
     WHERE session_id = ? AND jid LIKE '%@s.whatsapp.net'
-      AND jid IN (SELECT DISTINCT jid FROM messages WHERE session_id = ? AND direction = 'outgoing')
+      AND jid IN (SELECT DISTINCT jid FROM messages WHERE session_id = ? AND direction = 'outgoing' AND status != 'failed')
     ORDER BY jid, created_at, id
   `),
   recentMessages: db.prepare(`
@@ -175,7 +176,7 @@ export const stmts = {
     ) ORDER BY created_at, id
   `),
   chatCounts: db.prepare(`
-    SELECT jid, COUNT(*) AS n, SUM(direction = 'incoming') AS incoming, SUM(direction = 'outgoing') AS outgoing
+    SELECT jid, COUNT(*) AS n, SUM(direction = 'incoming') AS incoming, SUM(direction = 'outgoing' AND status != 'failed') AS outgoing
     FROM messages WHERE session_id = ? AND jid LIKE '%@s.whatsapp.net' GROUP BY jid
   `),
   getInsight: db.prepare("SELECT * FROM chat_insights WHERE session_id = ? AND jid = ?"),
@@ -208,7 +209,8 @@ export const stmts = {
   ),
   getLid: db.prepare("SELECT pn FROM lid_map WHERE session_id = ? AND lid = ?"),
   relabelMessages: db.prepare("UPDATE messages SET jid = ? WHERE session_id = ? AND jid = ?"),
-  hasOutgoing: db.prepare("SELECT 1 FROM messages WHERE session_id = ? AND jid = ? AND direction = 'outgoing' LIMIT 1"),
+  // "Recipient" means a message from this app actually went out to the number; failed sends do not count.
+  hasOutgoing: db.prepare("SELECT 1 FROM messages WHERE session_id = ? AND jid = ? AND direction = 'outgoing' AND status != 'failed' LIMIT 1"),
   hasMessageId: db.prepare("SELECT 1 FROM messages WHERE session_id = ? AND message_id = ? LIMIT 1"),
   unmappedRecipients: db.prepare(UNMAPPED_RECIPIENTS + " LIMIT 500"),
   hasUnmappedRecipient: db.prepare(UNMAPPED_RECIPIENTS + " LIMIT 1"),
