@@ -127,6 +127,8 @@
     .sender-card:has(input:checked) { border-color: var(--c-primary); background: var(--c-primary-soft); }
     .sender-card:has(input:focus-visible) { outline: 3px solid var(--c-primary); outline-offset: 2px; }
     .sender-card.off { cursor: default; opacity: 0.7; background: var(--c-muted); }
+    .sender-card.busy { cursor: default; border-style: dashed; }
+    .sender-card.busy:hover { border-color: var(--c-border); }
     .sender-card.off:hover { border-color: var(--c-border); }
     .sender-card input { position: absolute; opacity: 0; pointer-events: none; }
     .sender-meta { min-width: 0; flex: 1; }
@@ -509,7 +511,7 @@
             <div class="history-top">
               <div>
                 <h1 tabindex="-1">Riwayat</h1>
-                <p>Semua pengiriman yang pernah dilakukan, yang terbaru di atas. Klik salah satu untuk melihat pesannya dan dikirim ke siapa saja.</p>
+                <p>Semua pengiriman lewat Kirim Pesan dan Kirim Cepat, yang terbaru di atas. Klik salah satu untuk melihat pesannya dan dikirim ke siapa saja.</p>
               </div>
               <button type="button" class="btn btn-outline" data-action="history-refresh">Muat ulang</button>
             </div>
@@ -541,9 +543,9 @@
           <div class="faq" id="faq">
             <h2>Menghubungkan nomor</h2>
             <details><summary>Bagaimana cara menghubungkan nomor WhatsApp?</summary><div class="answer"><ol><li>Buka menu <strong>Nomor WhatsApp</strong>, isi nama, lalu klik <strong>Tambah nomor</strong>.</li><li>Di HP, buka WhatsApp lalu masuk ke <strong>Perangkat tertaut</strong> (ada di menu titik tiga atau Setelan).</li><li>Kalau sudah ada perangkat lain di daftar itu, keluarkan dulu.</li><li>Ketuk <strong>Tautkan perangkat</strong> dan arahkan kamera ke kode QR di layar.</li><li>Tunggu sampai statusnya berubah menjadi <strong>Terhubung</strong>.</li></ol></div></details>
-            <details id="faq-linked"><summary>Bolehkah nomornya tetap tertaut ke WhatsApp Web atau perangkat lain?</summary><div class="answer"><p>Jangan. Nomor yang dipakai di sini hanya boleh tertaut ke aplikasi ini, supaya nomor itu tidak dipakai mengirim dari tempat lain di waktu yang sama.</p><p>Cara memastikannya:</p><ol><li>Di HP, buka WhatsApp lalu masuk ke <strong>Perangkat tertaut</strong>.</li><li>Lihat daftar perangkatnya. Setelah berhasil dihubungkan, aplikasi ini muncul di sana dengan nama yang memuat Chrome atau Windows.</li><li>Kalau ada perangkat lain, ketuk perangkat itu lalu pilih <strong>Keluar</strong>.</li></ol><p>WhatsApp di HP itu sendiri tetap bisa dipakai seperti biasa. Aplikasi ini belum bisa memeriksa daftar tersebut secara otomatis, jadi perlu dicek sendiri di HP.</p></div></details>
+            <details id="faq-linked"><summary>Bolehkah nomornya tetap tertaut ke WhatsApp Web atau perangkat lain?</summary><div class="answer"><p>Jangan. Nomor yang dipakai di sini hanya boleh tertaut ke aplikasi ini, supaya nomor itu tidak dipakai mengirim dari tempat lain di waktu yang sama.</p><p>Cara memastikannya:</p><ol><li>Di HP, buka WhatsApp lalu masuk ke <strong>Perangkat tertaut</strong>.</li><li>Lihat daftar perangkatnya. Setelah berhasil dihubungkan, aplikasi ini muncul di sana, biasanya dengan nama browser seperti Chrome atau Windows.</li><li>Kalau ada perangkat lain, ketuk perangkat itu lalu pilih <strong>Keluar</strong>.</li></ol><p>WhatsApp di HP itu sendiri tetap bisa dipakai seperti biasa. Aplikasi ini belum bisa memeriksa daftar tersebut secara otomatis, jadi perlu dicek sendiri di HP.</p></div></details>
             <details><summary>Kamera HP saya tidak bisa scan kode QR. Ada cara lain?</summary><div class="answer"><p>Ada. Di kartu nomor tersebut klik <strong>Pakai kode</strong>, isi nomor HP-nya, lalu klik <strong>Minta kode</strong>. Di HP, pada layar Tautkan perangkat pilih <strong>Tautkan dengan nomor telepon</strong> dan masukkan kode yang muncul.</p></div></details>
-            <details><summary>Status nomor saya "Terputus" atau "Menunggu scan QR". Harus bagaimana?</summary><div class="answer"><p>Kalau koneksi putus sebentar, sistem mencoba menyambung lagi sendiri sampai 8 kali. Kalau statusnya <strong>Menunggu scan QR</strong>, berarti nomor perlu dihubungkan ulang: scan kode QR yang muncul di menu Nomor WhatsApp.</p><p>Nomor juga bisa terputus kalau dikeluarkan dari daftar Perangkat tertaut di HP.</p></div></details>
+            <details><summary>Status nomor saya "Terputus" atau "Menunggu scan QR". Harus bagaimana?</summary><div class="answer"><p>Kalau koneksi putus sebentar, sistem mencoba menyambung lagi sendiri sampai 8 kali. Kalau tetap gagal, statusnya menjadi Terputus dan muncul tombol <strong>Sambungkan ulang</strong> di kartu nomor itu. Kalau statusnya <strong>Menunggu scan QR</strong>, berarti nomor perlu dihubungkan ulang: scan kode QR yang muncul di menu Nomor WhatsApp.</p><p>Nomor juga bisa terputus kalau dikeluarkan dari daftar Perangkat tertaut di HP.</p></div></details>
             <details><summary>Bisakah menghubungkan lebih dari satu nomor?</summary><div class="answer"><p>Bisa, sampai <strong><span class="js-max">10</span> nomor</strong>. Tambahkan satu per satu di menu Nomor WhatsApp. Saat mengirim, kamu tinggal memilih mau kirim dari nomor yang mana.</p><p>Kalau sudah penuh, hapus dulu nomor yang tidak dipakai. Batas ini bisa dinaikkan oleh admin aplikasi.</p></div></details>
 
             <h2>File kontak dan isi pesan</h2>
@@ -554,20 +556,20 @@
 
             <h2>Saat mengirim</h2>
             <details><summary>Kenapa pengirimannya lama?</summary><div class="answer"><p>Sengaja diberi jeda beberapa detik di antara tiap pesan (biasanya 3-7 detik) supaya nomor tidak dianggap spam dan diblokir WhatsApp. Untuk 100 kontak kira-kira butuh 8-10 menit.</p></div></details>
-            <details><summary>Bolehkah halaman ditutup saat pengiriman berjalan?</summary><div class="answer"><p>Boleh untuk menu <strong>Kirim Pesan</strong>. Pengiriman tetap berjalan, dan hasilnya bisa dilihat di menu Riwayat. Kalau halaman dibuka lagi, kemajuannya muncul kembali.</p><p>Untuk <strong>Kirim Cepat</strong>, pengiriman juga tetap berjalan, tetapi tampilan kemajuannya hilang kalau halaman ditutup. Hasilnya tetap tercatat di Riwayat.</p></div></details>
-            <details><summary>Bagaimana cara menghentikan pengiriman?</summary><div class="answer"><p>Klik tombol <strong>Hentikan pengiriman</strong> di langkah Kirim. Pengiriman berhenti setelah pesan yang sedang diproses. Pesan yang sudah terkirim tidak bisa ditarik kembali.</p></div></details>
+            <details><summary>Bolehkah halaman ditutup saat pengiriman berjalan?</summary><div class="answer"><p>Boleh untuk menu <strong>Kirim Pesan</strong>. Pengiriman tetap berjalan, dan hasilnya bisa dilihat di menu Riwayat. Kalau halaman dibuka lagi, nomor yang masih mengirim ditandai "Sedang mengirim" di langkah pertama, dan kemajuannya bisa dibuka lewat tombol <strong>Lihat progres</strong>.</p><p>Untuk <strong>Kirim Cepat</strong>, pengiriman juga tetap berjalan, tetapi tampilan kemajuannya hilang kalau halaman ditutup. Hasilnya tetap tercatat di Riwayat.</p></div></details>
+            <details><summary>Bagaimana cara menghentikan pengiriman?</summary><div class="answer"><p>Klik tombol <strong>Hentikan pengiriman</strong> di langkah Kirim. Pengiriman berhenti setelah pesan yang sedang diproses. Pesan yang sudah terkirim tidak bisa ditarik kembali.</p><p>Kirim Cepat tidak punya tombol berhenti, jadi periksa jumlah kirimnya sebelum mulai.</p></div></details>
             <details><summary>Berapa orang yang bisa memakai di waktu yang sama?</summary><div class="answer"><p>Halaman ini boleh dibuka banyak orang sekaligus. Yang dibatasi adalah pengirimannya:</p><ul><li>Satu nomor hanya bisa menjalankan <strong>satu</strong> pengiriman massal (menu Kirim Pesan) dalam satu waktu.</li><li>Jadi jumlah pengiriman massal yang bisa berjalan bersamaan sama dengan jumlah nomor yang terhubung, paling banyak <span class="js-max">10</span>.</li><li>Kalau sebuah nomor sedang dipakai, orang berikutnya perlu menunggu sampai selesai atau memakai nomor lain.</li></ul></div></details>
-            <details><summary>Kenapa ada pesan yang gagal atau dilewati?</summary><div class="answer"><ul><li><strong>Dilewati</strong>: nomornya kosong atau terlalu pendek, jadi tidak dicoba kirim.</li><li><strong>Gagal</strong>: sudah dicoba tetapi tidak terkirim, misalnya nomor tidak terdaftar di WhatsApp atau koneksi sedang terputus.</li></ul><p>Kalau 10 pesan gagal berturut-turut, pengiriman berhenti sendiri supaya nomor tetap aman.</p></div></details>
+            <details><summary>Kenapa ada pesan yang gagal atau dilewati?</summary><div class="answer"><ul><li><strong>Dilewati</strong>: nomornya kosong atau terlalu pendek, atau kolom nomor HP tidak ditemukan di file, jadi tidak dicoba kirim.</li><li><strong>Gagal</strong>: sudah dicoba tetapi tidak terkirim, misalnya nomor tidak terdaftar di WhatsApp atau koneksi sedang terputus.</li></ul><p>Kalau 10 pesan gagal berturut-turut, pengiriman berhenti sendiri supaya nomor tetap aman.</p></div></details>
 
             <h2>Melihat hasil</h2>
             <details><summary>Apa arti Terkirim, Diterima, dan Dibaca?</summary><div class="answer"><ul><li><strong>Terkirim</strong>: pesan sudah keluar dari nomor pengirim (centang satu).</li><li><strong>Diterima</strong>: pesan sudah sampai di HP penerima (centang dua).</li><li><strong>Dibaca</strong>: penerima sudah membuka pesannya (centang biru). Tidak muncul kalau penerima mematikan laporan dibaca.</li></ul></div></details>
             <details><summary>Bisakah membalas pelanggan dari sini?</summary><div class="answer"><p>Bisa. Buka menu Percakapan, pilih nomornya, klik percakapannya, lalu tulis balasan di kotak bawah dan klik <strong>Kirim</strong>. Balasan hanya bisa dikirim ke nomor yang sudah pernah dikirimi pesan dari aplikasi ini, dan nomornya harus sedang terhubung.</p></div></details>
-            <details><summary>Bagaimana cara mengambil data percakapan untuk diolah?</summary><div class="answer"><p>Di menu Percakapan, pilih nomornya lalu klik <strong>Unduh transkrip (Excel)</strong>. Filenya berisi semua percakapan nomor itu: nomor pelanggan, arah pesan, isi, status, dan waktunya. Ada juga pilihan JSON untuk tim data.</p></div></details>
-            <details><summary>Apa itu "Analisis minat pelanggan"?</summary><div class="answer"><p>Fitur yang memakai AI untuk membaca satu percakapan dan memberi penilaian: apakah pelanggan mau jual LM, beli LM, tidak tertarik, atau belum jelas; seberapa kuat minatnya; ringkasan; dan saran tindak lanjut. Hasilnya adalah perkiraan, jadi tetap baca percakapannya sebelum mengambil keputusan.</p><p>Tombolnya hanya muncul kalau fitur ini sudah diaktifkan admin. Saat dipakai, isi percakapan dikirim ke layanan AI (Claude dari Anthropic) untuk dianalisis.</p></div></details>
+            <details><summary>Bagaimana cara mengambil data percakapan untuk diolah?</summary><div class="answer"><p>Di menu Percakapan, pilih nomornya lalu klik <strong>Unduh transkrip (Excel)</strong>. Filenya berisi semua percakapan nomor itu: nomor pelanggan, arah pesan, isi, status, dan waktunya. Ada juga pilihan JSON untuk tim data. Waktu di dalam file memakai zona UTC, yaitu 7 jam lebih awal dari WIB.</p></div></details>
+            <details><summary>Apa itu "Analisis minat pelanggan"?</summary><div class="answer"><p>Fitur yang memakai AI untuk membaca satu percakapan dan memberi penilaian: apakah pelanggan mau jual LM, beli LM, keduanya, tidak tertarik, atau belum jelas; seberapa kuat minatnya; ringkasan; dan saran tindak lanjut. AI membaca paling banyak 80 pesan terakhir dari percakapan itu. Hasilnya adalah perkiraan, jadi tetap baca percakapannya sebelum mengambil keputusan.</p><p>Tombolnya hanya muncul kalau fitur ini sudah diaktifkan admin. Saat dipakai, isi percakapan dikirim ke layanan AI (Claude dari Anthropic) untuk dianalisis.</p></div></details>
             <details><summary>Apa bedanya Riwayat dan Percakapan?</summary><div class="answer"><p><strong>Riwayat</strong> mencatat tiap pengiriman: kapan, dari nomor mana, isi pesannya, dan dikirim ke siapa saja.</p><p><strong>Percakapan</strong> menampilkan obrolan per nomor tujuan secara langsung: pesan yang dikirim, balasannya, dan obrolan sesudahnya selama nomor terhubung.</p></div></details>
             <details><summary>Kalau nomor dihapus dari aplikasi, apakah percakapannya ikut hilang?</summary><div class="answer"><p>Tidak. Percakapan dan riwayat pengirimannya tetap tersimpan. Di menu Percakapan, nomor itu masih bisa dipilih dengan keterangan "sudah dihapus".</p><p>Kalau nomor yang sama dihubungkan lagi, percakapan barunya tercatat terpisah dari yang lama.</p></div></details>
-            <details><summary>Apakah semua chat WhatsApp di nomor saya ikut terlihat di sini?</summary><div class="answer"><p>Tidak semuanya. Yang direkam hanya obrolan dengan nomor yang pernah dikirimi pesan dari aplikasi ini. Untuk nomor itu, obrolannya terekam terus mulai dari pesan pertama yang dikirim: balasan mereka, topik lain sesudahnya, dan pesan yang kamu ketik langsung dari HP.</p><p>Grup dan chat dengan nomor yang tidak pernah dikirimi pesan dari sini tidak direkam dan tidak ditampilkan.</p><p>Catatan: WhatsApp kadang menyembunyikan nomor pengirim. Aplikasi akan mencocokkannya dengan nomor tujuan; kalau belum berhasil, pesannya belum muncul di sini.</p></div></details>
-            <details><summary>Siapa saja yang bisa melihat data di sini?</summary><div class="answer"><p>Aplikasi ini belum memakai login. Siapa pun yang punya alamat halaman ini bisa melihat semua nomor, percakapan, dan riwayat. Jangan bagikan alamatnya ke orang di luar tim.</p></div></details>
+            <details><summary>Apakah semua chat WhatsApp di nomor saya ikut terlihat di sini?</summary><div class="answer"><p>Tidak semuanya. Yang direkam hanya obrolan dengan nomor yang pernah dikirimi pesan dari aplikasi ini. Untuk nomor itu, obrolannya terekam terus mulai dari pesan pertama yang dikirim: balasan mereka, topik lain sesudahnya, dan pesan yang kamu ketik langsung dari HP.</p><p>Grup dan chat dengan nomor yang tidak pernah dikirimi pesan dari sini tidak direkam dan tidak ditampilkan.</p><p>Catatan: WhatsApp kadang menyembunyikan nomor pengirim. Pesan seperti itu disimpan sementara tanpa ditampilkan sampai bisa dicocokkan dengan nomor tujuan. Yang tidak cocok dihapus, paling lama setelah 3 hari.</p><p>Foto, video, dan dokumen tidak disimpan. Yang tampil hanya tulisan [media] atau teks keterangannya.</p></div></details>
+            <details><summary>Siapa saja yang bisa melihat data di sini?</summary><div class="answer"><p>Aplikasi ini belum memakai login. Siapa pun yang punya alamat halaman ini bisa melihat semua nomor, percakapan, dan riwayat, dan juga bisa mengirim pesan, membalas, menghapus nomor, serta mengunduh transkrip. Jangan bagikan alamatnya ke orang di luar tim.</p></div></details>
             <p class="empty" id="faqEmpty" hidden>Tidak ada pertanyaan yang cocok dengan kata kunci itu.</p>
           </div>
         </section>
@@ -608,7 +610,11 @@
     let firstLoad = true;
     let maxSessions = null;
     let archivedSessions = [];
+    const busySenders = new Map();
     let insightsOn = false;
+    let replyBusy = false;
+    let insightBusy = false;
+    let chatLoadingMore = false;
     const chatCache = new Map();
     let columns = [];
     let contactCount = 0;
@@ -762,7 +768,12 @@
         if (on) n.setAttribute("aria-current", "page"); else n.removeAttribute("aria-current");
       });
       if (location.hash.slice(1) !== name) history[replace ? "replaceState" : "pushState"](null, "", `#${name}`);
-      if (name === "percakapan") { loadArchived(); loadChats(); }
+      if (name === "percakapan") {
+        loadArchived();
+        // Coming back to the page keeps the open conversation and any reply being typed.
+        if (!$("chatList") || chatState.sessionId !== $("chatSessionSelect").value) loadChats();
+        else refreshChatList();
+      }
       if (name === "riwayat") loadHistory();
       window.scrollTo(0, 0);
       if (focus) $(`page-${name}`).querySelector("h1")?.focus({ preventScroll: true });
@@ -781,16 +792,17 @@
         return;
       }
       sessionsCache = sessions;
-      const sig = JSON.stringify(sessions.map((s) => [s.id, s.name, s.phone, s.connected, s.hasQr, s.status]));
+      const sig = JSON.stringify(sessions.map((s) => [s.id, s.name, s.phone, s.connected, s.hasQr, s.status, s.canReconnect]));
       if (sig !== sessionsSig) {
         sessionsSig = sig;
         renderConn();
         renderSessions();
         renderSenders();
         populateSelects();
+        updateComposer();
       }
       sessions.filter((s) => s.hasQr).forEach((s) => loadSessionQr(s.id));
-      if (firstLoad) { firstLoad = false; resumeRunning(); }
+      if (firstLoad) { firstLoad = false; refreshBusy(); }
     }
 
     function renderConn() {
@@ -855,6 +867,7 @@
               <li>Arahkan kamera HP ke kode QR ini.</li>
             </ol>
           </div>` : ""}
+          ${s.canReconnect ? `<p class="hint" style="margin:0">Sudah 8 kali dicoba menyambung tetapi gagal. Klik Sambungkan ulang untuk mencoba lagi.</p>` : ""}
           <div class="pair-box" hidden>
             <div class="field">
               <label for="pair-${esc(s.id)}">Nomor HP yang mau dihubungkan</label>
@@ -862,12 +875,13 @@
                 <input type="text" id="pair-${esc(s.id)}" class="pair-phone" inputmode="tel" placeholder="Contoh: 6281234567890" style="flex:1;min-width:200px">
                 <button type="button" class="btn btn-primary" data-action="pair-request">Minta kode</button>
               </div>
-              <p class="hint">Di HP, pada layar Tautkan perangkat pilih "Tautkan dengan nomor telepon", lalu masukkan kode yang muncul di sini.</p>
+              <p class="hint">Nomor boleh ditulis 0812... atau 62812.... Di HP, pada layar Tautkan perangkat pilih "Tautkan dengan nomor telepon", lalu masukkan kode yang muncul di sini.</p>
             </div>
             <div class="pair-result" aria-live="polite"></div>
           </div>
           <div class="btn-row">
-            ${!s.connected ? `<button type="button" class="btn btn-outline" data-action="pair-toggle">Tidak bisa scan? Pakai kode</button>` : ""}
+            ${s.canReconnect ? `<button type="button" class="btn btn-primary" data-action="session-reconnect">Sambungkan ulang</button>` : ""}
+            ${!s.connected && !s.canReconnect ? `<button type="button" class="btn btn-outline" data-action="pair-toggle">Tidak bisa scan? Pakai kode</button>` : ""}
             <button type="button" class="btn btn-danger-outline" data-action="session-remove">Hapus nomor</button>
           </div>
         </div>`).join("");
@@ -921,8 +935,22 @@
       }
     }
 
+    async function reconnectNumber(card, btn) {
+      btn.disabled = true;
+      try {
+        await api(`/api/sessions/${encodeURIComponent(card.dataset.id)}/reconnect`, { method: "POST" });
+        toast("Mencoba menyambung lagi...", "success");
+        await refreshSessions();
+      } catch (err) {
+        toast(err.message, "error");
+        btn.disabled = false;
+      }
+    }
+
     async function requestPair(card, btn) {
-      const phone = card.querySelector(".pair-phone").value.replace(/\D/g, "");
+      let phone = card.querySelector(".pair-phone").value.replace(/\D/g, "");
+      if (phone.startsWith("0")) phone = "62" + phone.slice(1);
+      else if (phone.startsWith("8")) phone = "62" + phone;
       const out = card.querySelector(".pair-result");
       if (!phone) { toast("Isi dulu nomor HP-nya.", "error"); return; }
       btn.disabled = true;
@@ -963,7 +991,9 @@
         wizard.sessionId = null;
         if (wizard.step > 1) { toast("Nomor pengirim terputus. Pilih nomor lain.", "error"); setStep(1); }
       }
-      if (!wizard.sessionId && connected.length === 1) wizard.sessionId = connected[0].id;
+      if (wizard.sessionId && wizard.step < 5 && busySenders.has(wizard.sessionId)) wizard.sessionId = null;
+      const free = connected.filter((s) => !busySenders.has(s.id));
+      if (!wizard.sessionId && free.length === 1) wizard.sessionId = free[0].id;
       const el = $("senderList");
       if (!connected.length) {
         el.innerHTML = emptyState(ICON.phone, "Belum ada nomor WhatsApp yang terhubung",
@@ -972,7 +1002,12 @@
       } else {
         const others = sessionsCache.filter((s) => !s.connected);
         el.innerHTML = `<div class="sender-grid" role="radiogroup" aria-label="Nomor pengirim">` +
-          connected.map((s) => `<label class="sender-card">
+          connected.filter((s) => busySenders.has(s.id)).map((s) => `<div class="sender-card busy">
+            <span class="avatar" aria-hidden="true">${esc(initials(s.name))}</span>
+            <span class="sender-meta"><span class="sender-name">${esc(s.name)}</span><br><span class="sender-phone">Sedang mengirim ${busySenders.get(s.id).current} dari ${busySenders.get(s.id).total}</span></span>
+            <button type="button" class="btn btn-outline" data-action="blast-watch" data-sid="${esc(s.id)}">Lihat progres</button>
+          </div>`).join("") +
+          free.map((s) => `<label class="sender-card">
             <input type="radio" name="sender" value="${esc(s.id)}" ${s.id === wizard.sessionId ? "checked" : ""}>
             <span class="avatar" aria-hidden="true">${esc(initials(s.name))}</span>
             <span class="sender-meta"><span class="sender-name">${esc(s.name)}</span><br><span class="sender-phone num">${s.phone ? "+" + esc(s.phone) : ""}</span></span>
@@ -1182,13 +1217,13 @@
       toast("Pengiriman dimulai.", "success");
     }
 
-    function attachBlast(sessionId) {
+    function attachBlast(sessionId, total = contactCount) {
       blastSessionId = sessionId;
       wizard.sessionId = sessionId;
       wizard.running = true;
       wizard.finished = null;
       idlePolls = 0;
-      renderProgress({ status: "running", total: contactCount, current: 0, sent: 0, failed: 0, skipped: 0, results: [] });
+      renderProgress({ status: "running", total, current: 0, sent: 0, failed: 0, skipped: 0, results: [] });
       setStep(5);
       clearInterval(pollInterval);
       pollInterval = setInterval(pollStatus, 1000);
@@ -1248,7 +1283,7 @@
 
     function renderProgressActions() {
       $("progressActions").innerHTML = wizard.running
-        ? `<span></span><button type="button" class="btn btn-danger-outline" data-action="blast-stop">Hentikan pengiriman</button>`
+        ? `<button type="button" class="btn btn-outline" data-action="blast-detach">Kirim dari nomor lain</button><button type="button" class="btn btn-danger-outline" data-action="blast-stop">Hentikan pengiriman</button>`
         : `<button type="button" class="btn btn-outline" data-action="result-detail" data-job="${esc(wizard.finished?.id || "")}">Lihat detail per nomor</button><button type="button" class="btn btn-primary" data-action="blast-new">Kirim pesan baru</button>`;
     }
 
@@ -1315,18 +1350,31 @@
       setStep(stillConnected ? 2 : 1);
     }
 
-    async function resumeRunning() {
+    // Numbers that are sending right now. They are shown as busy; nobody is forced onto their progress screen.
+    async function refreshBusy() {
+      const found = new Map();
       for (const s of sessionsCache.filter((x) => x.connected)) {
         try {
           const d = await api(`/api/status?sessionId=${encodeURIComponent(s.id)}`);
-          if (d?.status === "running") {
-            contactCount = d.total || 0;
-            attachBlast(s.id);
-            toast(`Pengiriman dari ${s.name} masih berjalan.`);
-            return;
-          }
+          if (d?.status === "running") found.set(s.id, { current: d.current || 0, total: d.total || 0 });
         } catch {}
       }
+      const sig = (m) => JSON.stringify([...m]);
+      const changed = sig(found) !== sig(busySenders);
+      busySenders.clear();
+      for (const [k, v] of found) busySenders.set(k, v);
+      if (changed && wizard.step < 5) renderSenders();
+    }
+
+    function detachBlast() {
+      clearInterval(pollInterval);
+      pollInterval = null;
+      wizard.running = false;
+      wizard.finished = null;
+      wizard.sessionId = null;
+      blastSessionId = null;
+      setStep(1);
+      refreshBusy();
     }
 
     // ─── Kirim Cepat ───
@@ -1335,7 +1383,7 @@
       const sessionId = $("quickSessionSelect").value;
       const phone = $("quickPhone").value.trim();
       const message = $("quickMessage").value.trim();
-      const count = Math.max(1, parseInt($("quickCount").value) || 1);
+      const count = Math.min(200, Math.max(1, parseInt($("quickCount").value) || 1));
       if (!sessionId) { toast("Pilih dulu nomor pengirimnya.", "error"); $("quickSessionSelect").focus(); return; }
       if (!phone) { toast("Isi dulu nomor tujuannya.", "error"); $("quickPhone").focus(); return; }
       if (!message) { toast("Isi pesannya masih kosong.", "error"); $("quickMessage").focus(); return; }
@@ -1451,6 +1499,7 @@
       list.insertAdjacentHTML("beforeend", chats.map(renderChatItem).join("") +
         (chats.length >= CHAT_PAGE ? `<div class="list-more"><button type="button" class="btn btn-outline" data-action="chats-more">Tampilkan lebih banyak</button></div>` : ""));
       if (activeChat) list.querySelectorAll(".chat-item").forEach((c) => c.classList.toggle("active", c.dataset.jid === activeChat.jid));
+      if (activeChat && $("insightBox") && !insightBusy) $("insightBox").innerHTML = renderInsight(chatCache.get(activeChat.jid));
     }
 
     async function loadChats() {
@@ -1486,6 +1535,7 @@
 
     async function loadMoreChats(btn) {
       btn.disabled = true;
+      chatLoadingMore = true;
       const token = chatReq;
       try {
         const chats = await fetchChatPage();
@@ -1494,6 +1544,7 @@
         toast(err.message, "error");
         btn.disabled = false;
       }
+      chatLoadingMore = false;
     }
 
     function onChatSearch() {
@@ -1513,7 +1564,7 @@
 
     const renderMsg = (m) => {
       const out = m.direction === "outgoing";
-      return `<div class="msg ${out ? "msg-out" : "msg-in"}">` +
+      return `<div class="msg ${out ? "msg-out" : "msg-in"}" data-id="${esc(m.id)}">` +
         (!out && m.sender_name ? `<div class="msg-sender">${esc(m.sender_name)}</div>` : "") +
         `<div class="msg-text">${esc(m.content || "")}</div>` +
         `<div class="msg-meta">${esc(formatTime(m.created_at))}${out ? " · " + esc(ITEM_LABEL[m.status] || m.status) : ""}</div></div>`;
@@ -1529,10 +1580,8 @@
       document.querySelectorAll(".chat-item").forEach((c) => c.classList.toggle("active", c === btn));
       const chat = activeChat = { sessionId, jid, offset: 0, sig: "", lastId: 0 };
       const pane = $("chatPane");
-      pane.innerHTML = `<div class="chat-pane-head"><span class="num">${esc(btn.dataset.title)}</span><span class="live-note"><span class="dot ok"></span>Pesan baru muncul otomatis</span></div><div id="insightBox">${renderInsight(chatCache.get(jid))}</div><div class="chat-msgs" id="chatMsgs" aria-live="polite"><p class="hint">Memuat pesan...</p></div>` +
-        (sessionById(sessionId)?.connected
-          ? `<form class="chat-compose" id="chatCompose"><label class="sr-only" for="chatReply">Tulis balasan</label><textarea id="chatReply" placeholder="Tulis balasan, lalu klik Kirim" maxlength="4000"></textarea><button type="submit" class="btn btn-accent" id="chatReplyBtn">Kirim</button></form>`
-          : `<div class="chat-compose-off">Nomor ini sedang tidak terhubung, jadi belum bisa membalas dari sini.</div>`);
+      pane.innerHTML = `<div class="chat-pane-head"><span class="num">${esc(btn.dataset.title)}</span><span class="live-note"><span class="dot ok"></span>Pesan baru muncul otomatis</span></div><div id="insightBox">${renderInsight(chatCache.get(jid))}</div><div class="chat-msgs" id="chatMsgs" aria-live="polite"><p class="hint">Memuat pesan...</p></div><div id="composeWrap"></div>`;
+      updateComposer();
       try {
         const msgs = await latestMsgs(chat);
         if (chat !== activeChat) return;
@@ -1548,9 +1597,10 @@
     }
 
     // Live view: the open conversation and the first page of the list refresh on their own.
-    async function refreshOpenChat() {
+    async function refreshOpenChat(force = false) {
       const chat = activeChat;
-      if (!chat || document.hidden || !$("page-percakapan").classList.contains("active")) return;
+      if (!chat || !$("page-percakapan").classList.contains("active")) return;
+      if (document.hidden && !force) return;
       let msgs;
       try { msgs = await latestMsgs(chat); } catch { return; }
       const box = $("chatMsgs");
@@ -1562,19 +1612,23 @@
         box.innerHTML = (msgs.length >= 50 ? MORE_MSGS_BTN : "") + msgs.slice().reverse().map(renderMsg).join("");
         chat.offset = msgs.length;
       } else {
-        const fresh = msgs.filter((m) => m.id > chat.lastId).reverse();
-        box.insertAdjacentHTML("beforeend", fresh.map(renderMsg).join(""));
-        chat.offset += fresh.length;
+        let added = 0;
+        for (const m of msgs.slice().reverse()) {
+          const el = box.querySelector(`.msg[data-id="${m.id}"]`);
+          if (el) el.outerHTML = renderMsg(m);
+          else { box.insertAdjacentHTML("beforeend", renderMsg(m)); added++; }
+        }
+        chat.offset += added;
       }
       chat.sig = sig;
       chat.lastId = Math.max(chat.lastId, ...msgs.map((m) => m.id));
       if (atBottom) box.scrollTop = box.scrollHeight;
     }
 
-    async function refreshChatList() {
-      if (document.hidden || !$("page-percakapan").classList.contains("active") || !$("chatList")) return;
-      if (!chatState.sessionId || chatState.offset > CHAT_PAGE) return;
-      const token = chatReq;
+    // Reload the first page of the list. The periodic refresh leaves the list alone once more pages are loaded.
+    async function reloadChatList() {
+      if (!$("chatList") || !chatState.sessionId || chatLoadingMore) return;
+      const token = ++chatReq;
       const before = chatState.offset;
       chatState.offset = 0;
       try {
@@ -1586,6 +1640,23 @@
       }
     }
 
+    function refreshChatList() {
+      if (document.hidden || !$("page-percakapan").classList.contains("active")) return;
+      if (chatState.offset > CHAT_PAGE) return;
+      return reloadChatList();
+    }
+
+    // Shows the reply box only while the chat's number is connected; keeps a draft while it stays connected.
+    function updateComposer() {
+      const wrap = $("composeWrap");
+      if (!wrap || !activeChat) return;
+      const connected = !!sessionById(activeChat.sessionId)?.connected;
+      if (connected === !!$("chatCompose") && wrap.firstChild) return;
+      wrap.innerHTML = connected
+        ? `<form class="chat-compose" id="chatCompose"><label class="sr-only" for="chatReply">Tulis balasan</label><textarea id="chatReply" placeholder="Tulis balasan, lalu klik Kirim" maxlength="4000"></textarea><button type="submit" class="btn btn-accent" id="chatReplyBtn">Kirim</button></form>`
+        : `<div class="chat-compose-off">Nomor ini sedang tidak terhubung, jadi belum bisa membalas dari sini.</div>`;
+    }
+
     async function sendReply(e) {
       e.preventDefault();
       const chat = activeChat;
@@ -1593,18 +1664,21 @@
       const message = input.value.trim();
       if (!chat) return;
       if (!message) { toast("Balasannya masih kosong.", "error"); input.focus(); return; }
+      if (replyBusy) return;
+      replyBusy = true;
       const btn = $("chatReplyBtn");
       btn.disabled = true;
       btn.textContent = "Mengirim...";
       try {
         await postJson(`/api/sessions/${encodeURIComponent(chat.sessionId)}/chats/${encodeURIComponent(chat.jid)}/messages`, { message });
         if (chat === activeChat) input.value = "";
-        await refreshOpenChat();
+        await refreshOpenChat(true);
         const box = $("chatMsgs");
         if (box) box.scrollTop = box.scrollHeight;
       } catch (err) {
         toast(err.message, "error");
       }
+      replyBusy = false;
       if ($("chatReplyBtn")) { $("chatReplyBtn").disabled = false; $("chatReplyBtn").textContent = "Kirim"; }
     }
 
@@ -1613,14 +1687,21 @@
       if (!chat) return;
       btn.disabled = true;
       btn.textContent = "Menganalisis...";
+      insightBusy = true;
       try {
         const i = await api(`/api/sessions/${encodeURIComponent(chat.sessionId)}/chats/${encodeURIComponent(chat.jid)}/insight`, { method: "POST" });
         const c = chatCache.get(chat.jid);
         if (c) Object.assign(c, { insight_intent: i.intent, insight_level: i.level, insight_summary: i.summary, insight_profile: i.profile, insight_next_step: i.next_step, insight_at: i.analyzed_at, insight_message_count: i.message_count, message_count: i.message_count });
+        insightBusy = false;
         if (chat === activeChat && $("insightBox")) $("insightBox").innerHTML = renderInsight(c);
-        refreshChatList();
+        const item = c && document.querySelector(`.chat-item[data-jid="${CSS.escape(chat.jid)}"]`);
+        if (item) {
+          item.outerHTML = renderChatItem(c);
+          if (chat === activeChat) document.querySelector(`.chat-item[data-jid="${CSS.escape(chat.jid)}"]`)?.classList.add("active");
+        }
         toast("Analisis selesai.", "success");
       } catch (err) {
+        insightBusy = false;
         toast(err.message, "error");
         btn.disabled = false;
         btn.textContent = "Coba analisis lagi";
@@ -1642,7 +1723,7 @@
           if (!r.remaining || !r.analyzed) break;
         }
         status.textContent = done || failed ? `${done} percakapan dianalisis${failed ? `, ${failed} gagal` : ""}.` : "Tidak ada percakapan baru yang perlu dianalisis.";
-        refreshChatList();
+        reloadChatList();
       } catch (err) {
         status.textContent = "";
         toast(err.message, "error");
@@ -1650,10 +1731,22 @@
       btn.disabled = false;
     }
 
-    function downloadTranscript(format) {
+    async function downloadTranscript(format) {
       const sessionId = $("chatSessionSelect").value;
       if (!sessionId) { toast("Pilih dulu nomornya.", "error"); $("chatSessionSelect").focus(); return; }
-      location.href = `/api/sessions/${encodeURIComponent(sessionId)}/transcripts?format=${format}`;
+      try {
+        const r = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/transcripts?format=${format}`);
+        if (!r.ok) throw new Error((await r.json().catch(() => null))?.error || `Permintaan gagal (${r.status})`);
+        const name = (r.headers.get("content-disposition") || "").match(/filename="([^"]+)"/)?.[1] || `transkrip.${format}`;
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(await r.blob());
+        a.download = name;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        toast("Transkrip diunduh.", "success");
+      } catch (err) {
+        toast(err.message, "error");
+      }
     }
 
     async function loadInsightStatus() {
@@ -1758,7 +1851,9 @@
         }
       } catch (err) {
         el.innerHTML = `<div class="card"><div class="alert alert-warn" role="alert">${esc(err.message)}</div></div>`;
+        return false;
       }
+      return true;
     }
 
     async function loadOlderHistory(btn) {
@@ -1857,6 +1952,9 @@
         case "sample-file": downloadSample(); break;
         case "faq-open": { showPage("bantuan"); $("faqSearch").value = ""; filterFaq(); const d = $(el.dataset.faq); if (d) { d.open = true; d.scrollIntoView({ block: "center" }); d.querySelector("summary").focus({ preventScroll: true }); } break; }
         case "blast-stop": stopBlast(); break;
+        case "blast-detach": detachBlast(); break;
+        case "blast-watch": attachBlast(el.dataset.sid, busySenders.get(el.dataset.sid)?.total || 0); break;
+        case "session-reconnect": reconnectNumber(card, el); break;
         case "blast-new": newBlast(); break;
         case "pair-toggle": { const box = card.querySelector(".pair-box"); box.hidden = !box.hidden; if (!box.hidden) box.querySelector("input").focus(); break; }
         case "pair-request": requestPair(card, el); break;
@@ -1868,7 +1966,7 @@
         case "insight-all": analyzeAllChats(el); break;
         case "transcript": downloadTranscript(el.dataset.format); break;
         case "history-older": loadOlderHistory(el); break;
-        case "history-refresh": loadHistory().then(() => toast("Riwayat dimuat ulang.")); break;
+        case "history-refresh": loadHistory().then((ok) => { if (ok) toast("Riwayat dimuat ulang."); }); break;
         case "history-toggle": toggleHistory(card); break;
         case "history-more": loadMoreHistoryItems(el); break;
       }
@@ -1903,7 +2001,8 @@
     loadArchived();
     loadInsightStatus();
     setInterval(refreshSessions, 5000);
-    setInterval(refreshOpenChat, 5000);
+    setInterval(() => { if (!document.hidden && wizard.step < 5 && $("page-kirim").classList.contains("active")) refreshBusy(); }, 10000);
+    setInterval(() => refreshOpenChat(), 5000);
     setInterval(refreshChatList, 15000);
   </script>
 </body>
