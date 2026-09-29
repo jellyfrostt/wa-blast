@@ -1,4 +1,4 @@
-import { mkdirSync, readdirSync, unlinkSync, existsSync } from "fs";
+import { mkdirSync, readdirSync, unlinkSync, existsSync, statSync } from "fs";
 import { dirname, join } from "path";
 import db, { dbPath } from "./db.js";
 
@@ -26,6 +26,10 @@ export async function createBackup(date = new Date()) {
 // A consistent copy for download; the caller deletes it when done.
 export async function createSnapshot() {
   mkdirSync(backupDir, { recursive: true });
+  for (const f of readdirSync(backupDir).filter((n) => n.startsWith("download-"))) {
+    const file = join(backupDir, f);
+    try { if (Date.now() - statSync(file).mtimeMs > 60 * 60 * 1000) unlinkSync(file); } catch {}
+  }
   const target = join(backupDir, `download-${Date.now()}.tmp`);
   await db.backup(target);
   return target;
