@@ -3,3 +3,4 @@ auth_info/
 uploads/
 logs/
 .env
+data/
