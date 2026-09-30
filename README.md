@@ -1,188 +1,148 @@
 # WA Blast
 
-WhatsApp bulk messaging service built with [Baileys](https://github.com/WhiskeySockets/Baileys) and Express. Supports multi-session login, bulk/single message sending, chat viewing, read receipt tracking, and reconnection handling.
+WhatsApp bulk messaging service built with [Baileys](https://github.com/WhiskeySockets/Baileys) and Express. Several WhatsApp numbers can be linked at once; each can run a bulk blast, and the conversations that follow are recorded, shown live, exportable and optionally analysed with Claude.
 
-## Tech Stack
+Team-facing documentation in Indonesian: [docs/DOKUMENTASI.md](docs/DOKUMENTASI.md). Plans: [docs/ROADMAP.md](docs/ROADMAP.md).
 
-- **Runtime:** Node.js 20+
-- **WA Library:** @whiskeysockets/baileys 6.7.23
-- **Server:** Express 4
-- **Database:** SQLite via better-sqlite3 (message + session persistence)
-- **File Parsing:** csv-parse, xlsx
-- **Auth:** Multi-file auth state per session (`./auth_info/{sessionId}/`)
+## Tech stack
 
-## Architecture
+- **Runtime:** Node.js 22 (Dockerfile uses `node:22-slim`; better-sqlite3 13 needs it)
+- **WhatsApp:** @whiskeysockets/baileys 6.7.23
+- **Server:** Express 4, no authentication on any endpoint
+- **Database:** SQLite via better-sqlite3 (WAL mode)
+- **File parsing:** csv-parse, xlsx
+- **Frontend:** one HTML file, vanilla JS
+
+## Source layout
 
 ```
 src/
-  index.js        Express server + API routes
-  db.js           SQLite database setup + prepared statements
-  sessions.js     Multi-session WhatsApp manager (replaces wa-client.js)
-  blast.js        Bulk send engine (session-aware, DB logging)
-  history.js      Send history recorder (jobs + per-recipient items)
-  phone.js        Phone number formatting (ID format)
-  public/
-    index.html    Single-page frontend (sidebar dashboard, vanilla JS)
+  index.js      Express app and all HTTP routes
+  db.js         SQLite schema, startup cleanup, prepared statements
+  sessions.js   One Baileys socket per linked number, reconnect logic
+  blast.js      Bulk send engine, one job per number
+  history.js    Send history recorder (jobs and per-recipient items)
+  contacts.js   Which chats are recorded, and hidden-id (@lid) matching
+  insights.js   Customer-intent analysis with the Claude API
+  backup.js     Daily database snapshots and download snapshot
+  phone.js      Indonesian phone number normalisation
+  wa-client.js  Legacy single-number client, no longer imported
+  public/index.html   Dashboard (sidebar, six pages)
 ```
 
-### Multi-Session Design
+## How it works
 
-Each WhatsApp account is a "session" with its own Baileys socket, auth directory, and QR code. Multiple sessions can be connected simultaneously for blasting from different numbers.
+### Numbers (sessions)
 
-```
-sessions (Map)
-  "s_abc123" -> { sock, qr, reconnectAttempt, connectionLog }
-  "s_def456" -> { sock, qr, reconnectAttempt, connectionLog }
+Each linked WhatsApp number is a session with its own socket and auth directory `./auth_info/{sessionId}/`. Sessions are restored from the database at startup. On disconnect the socket retries up to 8 times (attempt x 5 s, capped at 60 s, plus up to 3 s jitter); after that it stops and the dashboard offers a manual reconnect. If WhatsApp logs the device out, the auth files are cleared and a fresh QR is shown.
 
-auth_info/
-  s_abc123/   -> creds.json, app-state-sync-key-*.json, ...
-  s_def456/   -> creds.json, app-state-sync-key-*.json, ...
+At most `MAX_SESSIONS` numbers can exist. Removing a number that has chats archives it (`status = 'removed'`) so its conversations stay readable; a number without chats is deleted.
 
-data/
-  wa-blast.db -> sessions table, messages table (all sent/received/status)
-```
+### Sending
 
-### Connection Flow
+- **Blast** (`/api/blast`): contacts come from an upload (`uploadId`), the template uses `{{column}}` placeholders (case-insensitive, spaces allowed). One blast per number at a time; different numbers blast in parallel. Per message: 20 s send timeout, up to 2 retries on connection, timeout or rate-limit errors (5 s then 10 s backoff), 30 s wait for a reconnect. A rate limit adds a 30-45 s cooldown. Five consecutive failures pause 30 s, ten stop the blast, a ban error stops it immediately. Numbers with fewer than 9 digits, or rows without a phone column, are skipped.
+- **Quick send** (`/api/quick-send`): the same message 1-200 times to one number, streamed as NDJSON. 3-8 s between messages and a 30-60 s pause every 10th.
+- **Reply** (`POST /api/sessions/:id/chats/:jid/messages`): a single message inside an existing conversation.
 
-1. Server starts -> `restoreSessions()` loads all sessions from DB and inits sockets
-2. User creates a session via UI or `POST /api/sessions`
-3. Scan QR or use pairing code to connect
-4. Session credentials saved to `./auth_info/{sessionId}/`
-5. On disconnect: exponential backoff reconnect (max 8 attempts, 5s-60s + jitter)
-6. On logout (kicked by WA): clear session auth, restart for fresh QR
-7. Legacy migration: existing `./auth_info/` files auto-migrated to `default` session
+Messages are sent exactly as written. Delays are clamped to 0-600 s.
 
-### Message Flow (Blast)
+### What is recorded
 
-1. Select sender session from dropdown
-2. Upload CSV/Excel via `/api/upload` -> returns an `uploadId` for that contact list
-3. Compose template with `{{column_name}}` variables (case-insensitive)
-4. Preview with `/api/preview`
-5. Start blast via `/api/blast` with `sessionId` + `uploadId` -> runs async in background
-6. All sent messages logged to SQLite with delivery status tracking
-7. Read receipts tracked via Baileys `messages.update` events
+Outgoing messages are stored, together with the live chat that follows with each number that was successfully sent to: replies, later topics, and messages the owner types on the phone, with no time cutoff. Nothing else is recorded: group chats, channels and chats with numbers this app never sent to are ignored, and a chat is neither listed nor readable through the API unless this app started it. A failed send does not start a conversation. Media is stored as `[media]` or its caption only.
 
-Each message: 20s send timeout -> up to 2 retries on connection/timeout errors -> wait for reconnect if socket dies (30s max).
+WhatsApp may deliver a message under a hidden id (`...@lid`) instead of the phone number. It is matched to its recipient from the number attached to the message, from a remembered mapping, or by asking WhatsApp for the hidden id of recent recipients (`sock.onWhatsApp`, at most 50 numbers every 5 minutes per number, recipients of the last 14 days). An unmatched incoming message is kept unlisted while any recent recipient is still unmatched, and deleted after 3 days or once every recent recipient is known. This lookup has not yet been verified against live WhatsApp traffic.
 
-Each session runs at most one blast at a time, and different sessions can blast in parallel. Contact lists are kept per upload (in memory, 24h), so two people uploading at the same time do not overwrite each other.
+Delivery status comes from Baileys `messages.update` (2 sent, 3 delivered, 4 and 5 read).
 
-### Message Tracking
+### Send history
 
-Outgoing messages are stored in SQLite, together with the live chat that follows with each number they were sent to: replies, later topics, and messages the owner types on the phone, with no time cutoff. The Percakapan page refreshes the open conversation every 5 seconds. Nothing else is recorded: group chats, channels and private chats of the linked number are ignored, and chats this app did not start are neither listed nor readable through the API.
+Every blast and quick send is a row in `send_jobs` with one `send_job_items` row per recipient. History keeps its own copy of sender name, number and recipients, so it survives removing a number. A job still `running` at startup is marked `interrupted`. Replies sent from the conversation view are not history jobs.
 
-WhatsApp may deliver a reply under a hidden id (`...@lid`) instead of the phone number. Such a reply is matched to its recipient from the number attached to the message or, failing that, by asking WhatsApp for the hidden id of recent recipients (at most 50 numbers every 5 minutes per session). Until it is matched it stays unlisted, and it is deleted after 3 days or as soon as every recent recipient is known.
+### Customer-intent analysis
 
-| Status | Meaning |
-|--------|---------|
-| `pending` | Message queued |
-| `sent` | Server acknowledged |
-| `delivered` | Delivered to recipient |
-| `read` | Read by recipient |
-| `failed` | Send failed after retries |
-| `received` | Incoming message |
+Off unless `ANTHROPIC_API_KEY` is set. For one conversation, the last 80 messages (1500 characters each) are sent to the Claude Messages API with a forced tool call, and the answer is stored in `chat_insights`: intent (`jual_lm`, `beli_lm`, `jual_dan_beli`, `tidak_tertarik`, `belum_jelas`), level (`tinggi`, `sedang`, `rendah`), summary, profile, next step. Only conversations with a customer reply are analysed. The API call is covered by tests with a fake HTTP client only; it has not been run against the real API.
 
-Status updates come from Baileys `messages.update` event (status enum: 2=sent, 3=delivered, 4=read).
+### Backups
 
-## API Endpoints
+A snapshot `backups/wa-blast-YYYY-MM-DD.db` is written next to the database once per UTC day (first check 60 s after start, then every 6 h) and the newest `BACKUP_KEEP` are kept. They sit on the same volume as the database. `GET /api/backup` returns a fresh consistent copy for off-site storage, only when `BACKUP_TOKEN` is set.
 
-### Session Management
+## API
+
+All endpoints are unauthenticated.
+
+### Numbers
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/sessions` | Create new session `{name}` (refused once `MAX_SESSIONS` is reached) |
-| GET | `/api/limits` | Configured limits `{maxSessions}` |
-| GET | `/api/sessions` | List all sessions |
-| GET | `/api/sessions/:id` | Session detail + connection log |
-| DELETE | `/api/sessions/:id` | Remove session (logout + clear auth); its chats and history are kept |
+| POST | `/api/sessions` | Add a number `{name}`; 400 once `MAX_SESSIONS` is reached |
+| GET | `/api/sessions` | Numbers that are not removed, with `connected`, `hasQr`, `canReconnect` |
 | GET | `/api/sessions/archived` | Removed numbers that still have chats |
-| GET | `/api/sessions/:id/qr` | Get QR data URL |
-| POST | `/api/sessions/:id/pair` | Request pairing code `{phone}` |
+| GET | `/api/sessions/:id` | Detail and connection log |
+| DELETE | `/api/sessions/:id` | Remove a number; cancels its running blast; chats and history are kept |
+| GET | `/api/sessions/:id/qr` | QR as data URL |
+| POST | `/api/sessions/:id/pair` | Pairing code `{phone}` |
+| POST | `/api/sessions/:id/reconnect` | Reconnect after the automatic retries were used up; 409 otherwise |
+| GET | `/api/limits` | `{maxSessions}` |
+| POST | `/api/disconnect` | Legacy: removes the session `{sessionId?}` |
 
-### Chat & Messages
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/sessions/:id/chats` | List conversations `?limit=50&offset=0&q=` (`q` filters by phone digits) |
-| GET | `/api/sessions/:id/chats/:jid/messages` | Get messages `?limit=50&offset=0` |
-| GET | `/api/blast/:jobId/stats` | Blast delivery stats (sent/delivered/read) |
-
-### Messaging
+### Conversations
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/send` | Send single message `{phone, message, sessionId?}` |
-| POST | `/api/quick-send` | Send a message N times `{phone, message, count, sessionId?}`; the final stream line carries the history `jobId` |
-| POST | `/api/blast` | Start bulk blast `{template, sessionId?, uploadId?, delayMin, delayMax}` |
-| GET | `/api/status` | Blast job status for a session (polling) `?sessionId=` |
-| POST | `/api/cancel` | Cancel a session's running blast `{sessionId?}` |
-| GET | `/api/history` | Send history (blasts + quick sends), newest first `?limit=50&offset=0` |
-| GET | `/api/history/:id` | One history job with its recipients `?limit=200&offset=0` |
+| GET | `/api/sessions/:id/chats` | Conversations `?limit=50&offset=0&q=` (`q` matches phone digits), with analysis fields |
+| GET | `/api/sessions/:id/chats/:jid/messages` | Messages, newest first `?limit=50&offset=0` |
+| POST | `/api/sessions/:id/chats/:jid/messages` | Reply `{message}`; 404 if not a conversation this app started, 409 if the number is not connected |
+| GET | `/api/sessions/:id/transcripts` | All conversations as JSON, or `?format=csv` (UTF-8 with BOM, formula-safe, times in UTC) |
+| GET | `/api/insights/status` | `{enabled, model}` |
+| POST | `/api/sessions/:id/chats/:jid/insight` | Analyse one conversation |
+| POST | `/api/sessions/:id/insights` | Analyse up to 10 conversations that need it; returns `{analyzed, failed, remaining}` |
 
-### System
+### Sending
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/health` | All sessions status + contact count |
-| GET | `/qr` | QR page (legacy, shows all pending QRs) |
-| POST | `/api/upload` | Upload CSV/Excel contacts, returns `uploadId` |
-| POST | `/api/preview` | Preview template rendering `{template, uploadId?}` |
-| POST | `/api/disconnect` | Disconnect session `{sessionId?}` |
-| GET | `/api/connection-log` | Connection event log `?sessionId=` |
-| POST | `/api/clear` | Clear uploaded contacts `{uploadId?}` |
-| GET | `/api/backup` | Download a consistent copy of the database (only when `BACKUP_TOKEN` is set) |
+| POST | `/api/upload` | CSV/Excel contacts (10 MB, first sheet), returns `uploadId`; optional `replaces` |
+| POST | `/api/preview` | Render the template for the first 3 rows `{template, uploadId?}` |
+| POST | `/api/blast` | Start a blast `{template, sessionId?, uploadId?, delayMin, delayMax}` |
+| GET | `/api/status` | Blast job for a number `?sessionId=`, with the latest 100 results |
+| POST | `/api/cancel` | Cancel a number's blast `{sessionId?}` |
+| POST | `/api/clear` | Drop an upload `{uploadId?}` |
+| POST | `/api/quick-send` | `{phone, message, count, sessionId?}`; the final stream line carries the history `jobId` |
+| POST | `/api/send` | One message `{phone, message, sessionId?}` |
 
-All send endpoints accept optional `sessionId`. If omitted, uses the first connected session. If `uploadId` is omitted, the most recent upload is used; without `sessionId`, status and cancel apply to the most recently started blast.
+Without `sessionId`, the first connected number is used (or the first number of any state). Without `uploadId`, the most recent upload is used. Without `sessionId`, status and cancel apply to the most recently started blast.
 
-## Frontend
+### History and system
 
-Sidebar dashboard in plain Indonesian, aimed at non-technical users. Pages are deep-linkable (`#kirim`, `#nomor`, `#cepat`, `#percakapan`, `#riwayat`, `#bantuan`).
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/history` | Send history, newest first `?limit=50&offset=0` |
+| GET | `/api/history/:id` | One job with its recipients `?limit=200&offset=0` |
+| GET | `/api/blast/:jobId/stats` | Delivery counts for a blast |
+| GET | `/api/connection-log` | Connection events `?sessionId=` |
+| GET | `/api/backup` | Database copy; needs `BACKUP_TOKEN` and `Authorization: Bearer <token>` |
+| GET | `/health` | 200 when at least one number is connected, else 503 |
+| GET | `/qr` | Legacy page listing pending QR codes |
 
-1. **Kirim Pesan** - guided 5-step blast: pick sender number, write message, upload contacts, review with preview, then send with live progress, a confirmation before sending and a result dialog when done. Reopening the page re-attaches to a blast that is still running.
-2. **Nomor WhatsApp** - add/remove WhatsApp numbers, scan QR with step-by-step instructions, or use a pairing code
-3. **Kirim Cepat** - send a message to a single number
-4. **Percakapan** - read-only conversations per number with delivery status, number search and load-more paging
-5. **Riwayat** - every blast and quick send with sender, start/finish time and delivery breakdown, 20 per page; cards start collapsed and expand to show the message and each recipient. The result dialog shown after a send links straight to its card
-6. **Bantuan** - getting-started guide and searchable FAQ
+## Data
 
-## Reliability Features
+### SQLite (`DB_PATH`)
 
-### Reconnection (sessions.js)
-- Max 8 reconnect attempts per session with exponential backoff (5s increments, capped at 60s + random jitter)
-- Logged out detection: clears session files, restarts with fresh QR
-- Connection log maintained per session (last 200 events)
+- **sessions** — id, name, phone, status (`removed` for archived numbers), timestamps
+- **messages** — session_id, jid, direction, content, message_id, status (`sent`, `delivered`, `read`, `failed`, `received`), blast_job_id, sender_name, timestamps
+- **send_jobs** — id, type (`blast`/`quick`), session_id, session_name, session_phone, template, status, total, started_at, finished_at
+- **send_job_items** — job_id, idx, phone, content, status, error, message_id, created_at
+- **lid_map** — session_id, lid, pn: hidden ids of numbers this app sent to
+- **chat_insights** — session_id, jid, intent, level, summary, profile, next_step, model, message_count, analyzed_at
 
-### Blast Resilience (blast.js)
-- **Send timeout:** 20s per message (prevents socket hangs)
-- **Auto-retry:** 2 retries on connection/timeout errors with backoff
-- **Reconnect wait:** If socket dies mid-blast, waits up to 30s for reconnection with 2s stability check
-- **Rate limit handling:** 30-45s cooldown on rate limit detection, retries after
-- **Consecutive error guard:** 5 errors -> 30s cooldown, 10 errors -> auto-stop
-- **Ban detection:** Immediate stop if banned/blocked detected
-- **Error classification:** rate_limit, banned, invalid_number, timeout, connection, auth
-- **DB logging:** Every sent/failed message stored in SQLite for tracking
+At startup the database deletes incoming messages of chats this app did not start, hidden-id messages older than 3 days and stale `lid_map` rows, and marks leftover running jobs `interrupted`.
 
-### Pacing (Quick Send)
-- Messages are sent exactly as typed, with no added greeting or variation
-- Configurable delay between messages (default 3-8s, +30-60s pause every 10 messages)
+### Not in the database
 
-## Template Variables
-
-Templates use `{{column_name}}` syntax. Lookup is **case-insensitive** and supports column names with spaces.
-
-```
-Halo {{nama}}, terima kasih sudah order {{produk}}!
-```
-
-If the Excel column is `Nama` and template uses `{{nama}}`, it will resolve correctly.
-
-## Phone Number Format
-
-Accepts Indonesian formats and normalizes to international:
-- `08123456789` -> `628123456789@s.whatsapp.net`
-- `8123456789` -> `628123456789@s.whatsapp.net`
-- `628123456789` -> `628123456789@s.whatsapp.net`
-
-Numbers with fewer than 9 digits are skipped during blast.
+- `./auth_info/{sessionId}/` — WhatsApp credentials per number
+- `backups/` next to the database — daily snapshots
+- `./logs/blast-*.json` — one JSON log per finished blast, relative to the working directory (not on the Railway volume)
+- In memory only: uploaded contact lists (24 h, dropped at the next upload after expiry), live blast progress, connection logs (200 events per number), QR and pairing codes
 
 ## Setup
 
@@ -190,57 +150,46 @@ Numbers with fewer than 9 digits are skipped during blast.
 cp .env.example .env
 npm install
 npm start        # production
-npm run dev      # dev with --watch
+npm run dev      # node --watch
 ```
 
 ### Docker
 
 ```bash
 docker build -t wa-blast .
-docker run -p 3001:3001 \
-  -v ./auth_info:/app/auth_info \
-  -v ./data:/app/data \
-  wa-blast
+docker run -p 3001:3001 -v ./auth_info:/app/auth_info -v ./data:/app/data wa-blast
 ```
 
-### Environment Variables
+The Dockerfile copies `package.json` only and runs `npm install`, so builds are not pinned to `package-lock.json`.
+
+### Environment variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `3001` | Server port |
-| `LOG_LEVEL` | `info` | Pino log level (debug, info, warn, error) |
-| `DB_PATH` | `./data/wa-blast.db` | SQLite database file path |
-| `MAX_SESSIONS` | `10` | Maximum WhatsApp numbers that can be added; the dashboard shows this limit |
-| `BACKUP_KEEP` | `7` | Daily database backups to keep next to the database (`0` disables backups) |
-| `BACKUP_TOKEN` | unset | Enables `GET /api/backup`; the request must send `Authorization: Bearer <token>` |
+| `LOG_LEVEL` | `info` | Pino log level |
+| `DB_PATH` | `./data/wa-blast.db` | SQLite file; backups are written to `backups/` beside it |
+| `MAX_SESSIONS` | `10` | Maximum numbers that can be added |
+| `BACKUP_KEEP` | `7` | Daily snapshots to keep (`0` disables them) |
+| `BACKUP_TOKEN` | unset | Enables `GET /api/backup` |
+| `ANTHROPIC_API_KEY` | unset | Enables customer-intent analysis |
+| `ANTHROPIC_MODEL` | `claude-opus-5-5` | Model used for analysis |
+| `INSIGHT_CONTEXT` | LM (gold bullion) buy/sell | Business context given to the model |
 
 ### Railway
 
-Add a volume for `/app/data` to persist the SQLite database between deployments. The existing `/app/auth_info` volume continues to store per-session auth files.
+The service is deployed with `railway up` from the working directory; nothing ties it to a git branch. There is one volume, mounted at `/app/auth_info`, and `DB_PATH=/app/auth_info/_data/wa-blast.db` keeps the database (and its backups) on that volume. A deploy restarts the server: numbers reconnect by themselves, a running blast is interrupted.
 
-## Data Storage
+## Known limits
 
-### SQLite Database (`./data/wa-blast.db`)
-- **sessions** — id, name, phone, status, timestamps
-- **messages** — session_id, jid, direction, content, message_id, status, blast_job_id, sender_name, timestamps
-- **send_jobs** — id, type (blast/quick), session_id, session_name, session_phone, template, status, total, started_at, finished_at
-- **send_job_items** — job_id, idx, phone, content, status, error, message_id, created_at
-- **lid_map** — session_id, lid, pn: the hidden id (`...@lid`) of numbers this app has sent to, so their replies are filed under the right number
+- No login: anyone with the URL can read every conversation, send, reply, remove numbers and download transcripts.
+- Load-tested only locally with fake WhatsApp sockets (up to 500 numbers blasting in parallel). Memory per real WhatsApp connection and the Railway container's capacity are unmeasured.
+- The tests replace WhatsApp with fake sockets. Nothing in the suite talks to real WhatsApp or the real Claude API.
 
-History keeps its own copy of the sender name/phone and recipients, so it survives removing a session. A job still marked `running` when the server starts is set to `interrupted`.
+## Tests
 
-### Backups
-- A snapshot `backups/wa-blast-YYYY-MM-DD.db` is written next to the database once a day; the newest `BACKUP_KEEP` are kept
-- These sit on the same volume as the database, so they do not survive losing the volume. For an off-site copy set `BACKUP_TOKEN` and pull `/api/backup` on a schedule
+```bash
+npm test
+```
 
-### Removed numbers
-- Removing a number that has chats marks it `removed` instead of deleting it, so its conversations stay readable; a number without chats is deleted outright
-
-### JSON Logs (`./logs/`)
-- Blast results saved as `blast-{timestamp}.json` (legacy, kept for backup)
-- Contains job metadata, per-message results, error breakdown
-
-### In-Memory
-- Uploaded contact lists (per upload, 24h)
-- Live progress of each session's current blast
-- Connection logs per session (last 200 events)
+`test/run.mjs` starts the real server once per suite (Node's `--experimental-test-module-mocks` swaps `src/sessions.js` for fake connected numbers), on port 3999, with the database in a temporary folder. Suites: parallel blasts, send history, list paging and search, the number limit, what is recorded and hidden-id matching, archived numbers and backups, reply/transcripts/analysis, and input hardening.
