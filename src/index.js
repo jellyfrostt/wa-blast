@@ -12,6 +12,7 @@ import { newJobId, recordJobStart, recordJobItem, recordJobFinish } from "./hist
 import { formatPhone, displayPhone } from "./phone.js";
 import { startBackups, createSnapshot } from "./backup.js";
 import { insightsEnabled, insightModel, analyzeChat, chatsNeedingAnalysis } from "./insights.js";
+import { mountAuth } from "./auth.js";
 import { timingSafeEqual } from "crypto";
 import { unlink } from "fs/promises";
 
@@ -21,6 +22,8 @@ const app = express();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 app.use(express.json());
+// Login routes and, when AUTH_ENABLED=true, the gate in front of every page and API below.
+mountAuth(app, logger);
 app.use(express.static(join(__dirname, "public")));
 
 const MAX_SESSIONS = Math.max(1, parseInt(process.env.MAX_SESSIONS) || 10);
@@ -341,7 +344,7 @@ app.post("/api/quick-send", async (req, res) => {
   let sent = 0, failed = 0;
 
   const jobId = newJobId("quick");
-  recordJobStart(logger, { id: jobId, type: "quick", sessionId, template: message, total: Number(count) });
+  recordJobStart(logger, { id: jobId, type: "quick", sessionId, template: message, total: Number(count), userEmail: req.user?.email ?? null });
 
   for (let i = 0; i < count; i++) {
     if (i > 0) {
@@ -483,7 +486,7 @@ app.post("/api/blast", (req, res) => {
   if (!sessionId) return res.status(503).json({ error: "Tidak ada session aktif" });
 
   try {
-    const job = startBlast(sessionId, upload.rows, template, delayMin, delayMax, logger);
+    const job = startBlast(sessionId, upload.rows, template, delayMin, delayMax, logger, req.user?.email ?? null);
     res.json({ id: job.id, sessionId, status: job.status, total: job.total });
   } catch (err) {
     res.status(400).json({ error: err.message });
