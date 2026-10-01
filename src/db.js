@@ -91,6 +91,11 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_job_items_job ON send_job_items(job_id, idx);
 `);
 
+// Older databases predate the column that records who started a send.
+if (!db.prepare("PRAGMA table_info(send_jobs)").all().some((c) => c.name === "user_email")) {
+  db.exec("ALTER TABLE send_jobs ADD COLUMN user_email TEXT");
+}
+
 // Privacy: this app only keeps replies from numbers it has sent to. Remove anything else that was
 // recorded (group chats, private chats) and hidden-id mappings that no longer point at a recipient.
 // Messages under a hidden id ("@lid") may still be a recipient's reply waiting to be matched, so
@@ -219,7 +224,7 @@ export const stmts = {
   deleteOldHiddenRows: db.prepare("DELETE FROM messages WHERE session_id = ? AND jid LIKE '%@lid' AND created_at < datetime('now', '-3 days')"),
 
   insertJob: db.prepare(
-    "INSERT INTO send_jobs (id, type, session_id, session_name, session_phone, template, total, started_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO send_jobs (id, type, session_id, session_name, session_phone, template, total, started_at, user_email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
   ),
   insertJobItem: db.prepare(
     "INSERT INTO send_job_items (job_id, idx, phone, content, status, error, message_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"

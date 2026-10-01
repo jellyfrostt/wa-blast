@@ -137,7 +137,7 @@ function saveLog(job, logger) {
   }
 }
 
-export function startBlast(sessionId, contacts, template, delayMin, delayMax, logger) {
+export function startBlast(sessionId, contacts, template, delayMin, delayMax, logger, userEmail = null) {
   if (jobs.get(sessionId)?.status === "running") {
     throw new Error("Nomor ini masih mengirim pesan lain. Tunggu sampai selesai atau hentikan dulu.");
   }
@@ -169,7 +169,7 @@ export function startBlast(sessionId, contacts, template, delayMin, delayMax, lo
   };
   jobs.set(sessionId, job);
   latestJob = job;
-  recordJobStart(logger, { id: jobId, type: "blast", sessionId, template, total: contacts.length });
+  recordJobStart(logger, { id: jobId, type: "blast", sessionId, template, total: contacts.length, userEmail });
 
   const addResult = (entry, content, messageId) => {
     job.results.push(entry);

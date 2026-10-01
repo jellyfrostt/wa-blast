@@ -6,10 +6,10 @@ export function newJobId(type) {
   return `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
-export function recordJobStart(logger, { id, type, sessionId, template, total }) {
+export function recordJobStart(logger, { id, type, sessionId, template, total, userEmail = null }) {
   try {
     const s = stmts.getSession.get(sessionId);
-    stmts.insertJob.run(id, type, sessionId, s?.name ?? null, s?.phone ?? null, template, total, new Date().toISOString());
+    stmts.insertJob.run(id, type, sessionId, s?.name ?? null, s?.phone ?? null, template, total, new Date().toISOString(), userEmail);
   } catch (err) {
     logger.warn({ id, err: err.message }, "Failed to record send job");
   }
