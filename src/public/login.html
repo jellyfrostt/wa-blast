@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Masuk - WA Blast</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --c-primary: #2563EB; --c-primary-hover: #1D4ED8; --c-accent: #047857;
+      --c-bg: #F8FAFC; --c-card: #FFFFFF; --c-fg: #0F172A; --c-muted: #F1F5F9; --c-muted-fg: #475569; --c-border: #E2E8F0;
+      --c-danger-soft: #FEE2E2; --c-danger: #991B1B;
+      --font: 'Fira Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --slide: 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { font-family: var(--font); font-size: 16px; line-height: 1.5; color: var(--c-fg); background: var(--c-bg); min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+    button, input { font: inherit; color: inherit; }
+    :focus-visible { outline: 3px solid var(--c-primary); outline-offset: 2px; border-radius: 6px; }
+    .box { width: min(440px, 100%); background: var(--c-card); border: 1px solid var(--c-border); border-radius: 14px; padding: 28px; overflow: hidden; }
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .brand-mark { width: 44px; height: 44px; border-radius: 10px; background: var(--c-accent); color: #fff; display: grid; place-items: center; }
+    .brand-mark svg { width: 24px; height: 24px; }
+    .brand-name { font-weight: 700; font-size: 20px; }
+    h1 { font-size: 22px; line-height: 1.3; }
+    h2 { font-size: 18px; line-height: 1.3; }
+    .lead { color: var(--c-muted-fg); margin: 4px 0 20px; }
+
+    /* Two-way switch: the pill slides under the chosen button */
+    .switch { position: relative; display: grid; grid-template-columns: 1fr 1fr; background: var(--c-muted); border-radius: 10px; padding: 4px; margin-bottom: 20px; }
+    .switch-pill { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); background: var(--c-card); border-radius: 8px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.15); transition: transform var(--slide); }
+    .switch[data-choice="password"] .switch-pill { transform: translateX(100%); }
+    .switch button { position: relative; z-index: 1; min-height: 44px; border: 0; background: none; border-radius: 8px; font-weight: 600; color: var(--c-muted-fg); cursor: pointer; transition: color 0.2s ease; padding: 6px 8px; }
+    .switch button[aria-selected="true"] { color: var(--c-fg); }
+
+    /* The two panels sit side by side; the track swipes left or right */
+    .viewport { overflow: hidden; margin: 0 -4px; touch-action: pan-y; }
+    .track { display: flex; width: 200%; transition: transform var(--slide); will-change: transform; }
+    .track[data-choice="password"] { transform: translateX(-50%); }
+    .panel { width: 50%; padding: 0 4px; transition: opacity var(--slide); }
+    .panel[inert] { opacity: 0; }
+    .panel-min { min-height: 268px; display: flex; flex-direction: column; }
+    .panel p.note { color: var(--c-muted-fg); margin: 6px 0 18px; }
+
+    .field { margin-bottom: 14px; }
+    label { display: block; font-weight: 600; margin-bottom: 6px; }
+    input { width: 100%; min-height: 44px; border: 1px solid #CBD5E1; border-radius: 8px; padding: 10px 12px; background: #fff; }
+    input:focus-visible { outline: 3px solid var(--c-primary); outline-offset: 0; border-color: var(--c-primary); }
+    .btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 46px; padding: 10px 16px; border-radius: 8px; border: 1px solid transparent; font-weight: 600; cursor: pointer; text-decoration: none; transition: background-color 0.15s ease; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-primary { background: var(--c-primary); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--c-primary-hover); }
+    .btn-outline { background: #fff; border-color: #CBD5E1; color: var(--c-fg); }
+    .btn-outline:hover { background: var(--c-muted); }
+    .btn svg { width: 20px; height: 20px; }
+    .hint { color: var(--c-muted-fg); font-size: 14px; margin-top: 8px; }
+    .alert { border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-size: 15px; background: var(--c-danger-soft); color: var(--c-danger); }
+    .foot { margin-top: auto; padding-top: 16px; color: var(--c-muted-fg); font-size: 14px; }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  </style>
+</head>
+<body>
+  <main class="box">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg></div>
+      <div class="brand-name">WA Blast</div>
+    </div>
+
+    <div id="message" class="alert" role="alert" hidden></div>
+
+    <!-- Sign in -->
+    <section id="viewLogin" hidden>
+      <h1>Masuk</h1>
+      <p class="lead">Pilih cara masuk yang sesuai dengan akunmu.</p>
+
+      <div class="switch" id="switch" role="tablist" aria-label="Cara masuk" data-choice="google">
+        <span class="switch-pill" aria-hidden="true"></span>
+        <button type="button" role="tab" id="tabGoogle" aria-controls="panelGoogle" aria-selected="true" data-choice="google">Akun kantor</button>
+        <button type="button" role="tab" id="tabPassword" aria-controls="panelPassword" aria-selected="false" data-choice="password">Email dan password</button>
+      </div>
+
+      <div class="viewport" id="viewport">
+        <div class="track" id="track" data-choice="google">
+          <div class="panel" id="panelGoogle" role="tabpanel" aria-labelledby="tabGoogle">
+            <div class="panel-min">
+              <h2>Punya email <span class="js-domain">@pintarnya.com</span>?</h2>
+              <p class="note">Masuk dengan akun Google kantor. Tidak perlu password tambahan.</p>
+              <a class="btn btn-outline" id="googleBtn" href="/auth/google">
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.6 12.2c0-.8-.1-1.5-.2-2.2H12v4.2h5.9a5 5 0 0 1-2.2 3.3v2.7h3.6c2.1-1.9 3.3-4.8 3.3-8z"/><path fill="#34A853" d="M12 23c3 0 5.5-1 7.3-2.7l-3.6-2.7c-1 .7-2.3 1.1-3.7 1.1-2.9 0-5.3-1.9-6.2-4.6H2.1v2.8A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.8 14.1a6.6 6.6 0 0 1 0-4.2V7.1H2.1a11 11 0 0 0 0 9.8l3.7-2.8z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3.1.6 4.2 1.6l3.2-3.2A11 11 0 0 0 2.1 7.1l3.700 2.8c.9-2.6 3.3-4.5 6.2-4.5z"/></svg>
+                Masuk dengan Google
+              </a>
+              <p class="hint" id="googleOff" hidden>Masuk dengan Google belum diaktifkan. Pakai email dan password dulu.</p>
+              <p class="foot">Emailmu bukan <span class="js-domain">@pintarnya.com</span>? Pilih <strong>Email dan password</strong> di atas.</p>
+            </div>
+          </div>
+          <div class="panel" id="panelPassword" role="tabpanel" aria-labelledby="tabPassword" inert>
+            <div class="panel-min">
+              <form id="loginForm" novalidate>
+                <div class="field">
+                  <label for="email">Email</label>
+                  <input type="email" id="email" autocomplete="username" required>
+                </div>
+                <div class="field">
+                  <label for="password">Password</label>
+                  <input type="password" id="password" autocomplete="current-password" required>
+                </div>
+                <button type="submit" class="btn btn-primary" id="loginBtn">Masuk</button>
+              </form>
+              <p class="foot">Belum punya akun atau lupa password? Minta admin WA Blast membuatkan akun atau mengatur ulang password-mu.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- First login with a temporary password -->
+    <section id="viewChange" hidden>
+      <h1>Buat password baru</h1>
+      <p class="lead">Kamu masuk dengan password sementara. Ganti dulu dengan password pilihanmu sendiri.</p>
+      <form id="changeForm" novalidate>
+        <div class="field">
+          <label for="current">Password sementara</label>
+          <input type="password" id="current" autocomplete="current-password" required>
+        </div>
+        <div class="field">
+          <label for="next">Password baru</label>
+          <input type="password" id="next" autocomplete="new-password" minlength="8" required>
+          <p class="hint">Minimal 8 karakter.</p>
+        </div>
+        <div class="field">
+          <label for="repeat">Ulangi password baru</label>
+          <input type="password" id="repeat" autocomplete="new-password" minlength="8" required>
+        </div>
+        <button type="submit" class="btn btn-primary" id="changeBtn">Simpan dan lanjut</button>
+      </form>
+      <p class="hint" style="margin-top:16px"><button type="button" class="btn btn-outline" id="logoutBtn">Keluar</button></p>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const ERRORS = {
+      domain: "Akun Google itu bukan akun kantor. Pakai akun kantor, atau pilih Email dan password.",
+      unverified: "Email di akun Google itu belum terverifikasi.",
+      inactive: "Akun ini sudah dinonaktifkan. Hubungi admin WA Blast.",
+      state: "Masuk dengan Google gagal. Coba sekali lagi.",
+      google: "Masuk dengan Google gagal. Coba sekali lagi.",
+      google_off: "Masuk dengan Google belum diaktifkan. Pakai email dan password.",
+    };
+    let googleOn = false;
+
+    function showMessage(text) {
+      const el = $("message");
+      el.textContent = text;
+      el.hidden = !text;
+    }
+
+    async function post(path, body) {
+      const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+      let d = null;
+      try { d = await r.json(); } catch {}
+      if (!r.ok) throw new Error(d?.error || "Terjadi kesalahan. Coba lagi.");
+      return d;
+    }
+
+    // Slide to the chosen way of signing in. The panel that is off-screen is inert, so the keyboard
+    // and screen readers only reach the visible one.
+    function choose(choice, { focus = false } = {}) {
+      $("switch").dataset.choice = choice;
+      $("track").dataset.choice = choice;
+      for (const [tab, panel, name] of [[$("tabGoogle"), $("panelGoogle"), "google"], [$("tabPassword"), $("panelPassword"), "password"]]) {
+        const on = name === choice;
+        tab.setAttribute("aria-selected", String(on));
+        tab.tabIndex = on ? 0 : -1;
+        panel.inert = !on;
+      }
+      try { localStorage.setItem("wa_login_choice", choice); } catch {}
+      if (focus) (choice === "password" ? $("email") : $("googleBtn")).focus({ preventScroll: true });
+    }
+
+    function show(view) {
+      $("viewLogin").hidden = view !== "login";
+      $("viewChange").hidden = view !== "change";
+      if (view === "change") $("current").focus();
+    }
+
+    async function init() {
+      const error = new URLSearchParams(location.search).get("error");
+      if (error) showMessage(ERRORS[error] || "Gagal masuk. Coba lagi.");
+      let config = { enabled: true, google: false, domain: "pintarnya.com" };
+      let me = { user: null };
+      try {
+        [config, me] = await Promise.all([fetch("/api/auth/config").then((r) => r.json()), fetch("/api/auth/me").then((r) => r.json())]);
+      } catch {
+        showMessage("Server tidak bisa dihubungi. Muat ulang halaman ini.");
+      }
+      if (!config.enabled) { location.replace("/"); return; }
+      if (me.user && !me.user.mustChangePassword) { location.replace("/"); return; }
+
+      googleOn = !!config.google;
+      document.querySelectorAll(".js-domain").forEach((el) => { el.textContent = "@" + config.domain; });
+      $("googleBtn").hidden = !googleOn;
+      $("googleOff").hidden = googleOn;
+
+      let saved = null;
+      try { saved = localStorage.getItem("wa_login_choice"); } catch {}
+      const start = error === "domain" || error === "google_off" || !googleOn ? "password" : saved === "password" ? "password" : "google";
+      // No slide on first paint: only a deliberate choice should animate.
+      $("track").style.transition = "none";
+      document.querySelector(".switch-pill").style.transition = "none";
+      choose(start);
+      show(me.user ? "change" : "login");
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        $("track").style.transition = "";
+        document.querySelector(".switch-pill").style.transition = "";
+      }));
+    }
+
+    $("switch").addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-choice]");
+      if (btn) choose(btn.dataset.choice, { focus: btn.dataset.choice === "password" });
+    });
+    $("switch").addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const next = e.key === "ArrowRight" ? "password" : "google";
+      choose(next);
+      (next === "password" ? $("tabPassword") : $("tabGoogle")).focus();
+    });
+
+    // Swiping the panel with a finger switches too.
+    let touchX = null;
+    $("viewport").addEventListener("touchstart", (e) => { touchX = e.touches[0].clientX; }, { passive: true });
+    $("viewport").addEventListener("touchend", (e) => {
+      if (touchX === null) return;
+      const dx = e.changedTouches[0].clientX - touchX;
+      touchX = null;
+      if (Math.abs(dx) > 60) choose(dx < 0 ? "password" : "google");
+    }, { passive: true });
+
+    $("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = $("email").value.trim(), password = $("password").value;
+      if (!email || !password) { showMessage("Isi email dan password."); return; }
+      const btn = $("loginBtn");
+      btn.disabled = true;
+      btn.textContent = "Memeriksa...";
+      try {
+        const d = await post("/api/auth/login", { email, password });
+        showMessage("");
+        if (d.user.mustChangePassword) { $("current").value = password; show("change"); $("next").focus(); }
+        else location.replace("/");
+      } catch (err) {
+        showMessage(err.message);
+        $("password").focus();
+      }
+      btn.disabled = false;
+      btn.textContent = "Masuk";
+    });
+
+    $("changeForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const current = $("current").value, next = $("next").value, repeat = $("repeat").value;
+      if (next.length < 8) { showMessage("Password baru minimal 8 karakter."); $("next").focus(); return; }
+      if (next !== repeat) { showMessage("Dua password baru itu belum sama."); $("repeat").focus(); return; }
+      const btn = $("changeBtn");
+      btn.disabled = true;
+      try {
+        await post("/api/auth/password", { current, next });
+        location.replace("/");
+      } catch (err) {
+        showMessage(err.message);
+        btn.disabled = false;
+      }
+    });
+
+    $("logoutBtn").addEventListener("click", async () => {
+      try { await post("/api/auth/logout"); } catch {}
+      location.replace("/login");
+    });
+
+    init();
+  </script>
+</body>
+</html>
