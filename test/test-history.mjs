@@ -83,7 +83,7 @@ try {
   assert.equal((await api("GET", `/api/history/${blast.id}`)).json.items.length, 5);
   console.log("ok  history survives removing the session");
 
-  db.stmts.insertJob.run("blast-stale", "blast", "b", "Sales", "6282220002", "x", 10, new Date().toISOString());
+  db.stmts.insertJob.run("blast-stale", "blast", "b", "Sales", "6282220002", "x", 10, new Date().toISOString(), null);
   const out = execFileSync(process.execPath, ["--input-type=module", "-e",
     `const { stmts } = await import(${JSON.stringify(pathToFileURL(`${REPO}/src/db.js`).href)}); const j = stmts.getJob.get("blast-stale"); console.log(j.status + "|" + j.finished_at);`,
   ], { env: process.env, encoding: "utf8" }).trim();

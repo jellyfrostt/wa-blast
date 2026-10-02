@@ -19,6 +19,7 @@ const suites = [
   ["test-features.mjs", {}],
   ["test-features.mjs", { ANTHROPIC_API_KEY: "test-key-not-real" }],
   ["test-hardening.mjs", {}],
+  ["test-auth.mjs", { AUTH_ENABLED: "true", ADMIN_EMAIL: "admin@contoh.com", ADMIN_PASSWORD: "bootstrap-pass-1", ADMIN_EMAILS: "boss@pintarnya.com", GOOGLE_CLIENT_ID: "test-client-id", GOOGLE_CLIENT_SECRET: "test-client-secret" }],
 ];
 
 let failed = 0;
@@ -26,7 +27,7 @@ for (const [file, env] of suites) {
   const cwd = mkdtempSync(join(tmpdir(), "wa-blast-test-"));
   const label = `${file}${Object.keys(env).length ? ` (${Object.keys(env).join(", ")})` : ""}`;
   const clean = { ...process.env };
-  for (const k of ["DB_PATH", "BACKUP_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL", "MAX_SESSIONS", "WITH_QR", "N_SESSIONS"]) delete clean[k];
+  for (const k of ["DB_PATH", "BACKUP_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL", "MAX_SESSIONS", "WITH_QR", "N_SESSIONS", "AUTH_ENABLED", "ADMIN_EMAIL", "ADMIN_PASSWORD", "ADMIN_EMAILS", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_ALLOWED_DOMAIN", "PUBLIC_URL"]) delete clean[k];
   const r = spawnSync(process.execPath, ["--experimental-test-module-mocks", "--no-warnings", join(here, file)], {
     cwd,
     env: { ...clean, LOG_LEVEL: "silent", ...env },
