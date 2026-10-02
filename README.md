@@ -8,7 +8,7 @@ Team-facing documentation in Indonesian: [docs/DOKUMENTASI.md](docs/DOKUMENTASI.
 
 - **Runtime:** Node.js 22 (Dockerfile uses `node:22-slim`; better-sqlite3 13 needs it)
 - **WhatsApp:** @whiskeysockets/baileys 6.7.23
-- **Server:** Express 4, no authentication on any endpoint
+- **Server:** Express 4; optional login (off until `AUTH_ENABLED=true`)
 - **Database:** SQLite via better-sqlite3 (WAL mode)
 - **File parsing:** csv-parse, xlsx
 - **Frontend:** one HTML file, vanilla JS
@@ -25,9 +25,11 @@ src/
   contacts.js   Which chats are recorded, and hidden-id (@lid) matching
   insights.js   Customer-intent analysis with the Claude API
   backup.js     Daily database snapshots and download snapshot
+  auth.js       Login: Google sign-in for one domain, password accounts, sessions, user management
   phone.js      Indonesian phone number normalisation
   wa-client.js  Legacy single-number client, no longer imported
-  public/index.html   Dashboard (sidebar, six pages)
+  public/index.html   Dashboard (sidebar pages)
+  public/login.html   Login page
 ```
 
 ## How it works
@@ -62,13 +64,41 @@ Every blast and quick send is a row in `send_jobs` with one `send_job_items` row
 
 Off unless `ANTHROPIC_API_KEY` is set. For one conversation, the last 80 messages (1500 characters each) are sent to the Claude Messages API with a forced tool call, and the answer is stored in `chat_insights`: intent (`jual_lm`, `beli_lm`, `jual_dan_beli`, `tidak_tertarik`, `belum_jelas`), level (`tinggi`, `sedang`, `rendah`), summary, profile, next step. Only conversations with a customer reply are analysed. The API call is covered by tests with a fake HTTP client only; it has not been run against the real API.
 
+### Login
+
+Off by default so an existing deployment keeps working. With `AUTH_ENABLED=true`, every page redirects to `/login` and every API answers 401 without a session (exceptions: `/health`, and `/api/backup` which has its own token).
+
+- **Google:** authorization-code flow restricted to `GOOGLE_ALLOWED_DOMAIN` (default `pintarnya.com`): the `hd` parameter is sent, and the returned ID token must have the right audience and issuer, a verified email, and both email and hosted domain on that domain. A first-time user gets a `member` account; emails in `ADMIN_EMAILS` become `admin`.
+- **Email + password:** accounts are created by an admin (no self-signup). The server generates a one-time password that the user must replace at first login. Passwords are hashed with scrypt. Login is throttled to 8 failures per 15 minutes per IP and email, and answers the same for unknown emails and wrong passwords.
+- **Sessions:** a random token in an `HttpOnly`, `SameSite=Lax` cookie (`Secure` over https), valid 7 days; only its SHA-256 is stored. State-changing requests whose `Origin` is another site are refused.
+- **Roles:** `admin` manages users; otherwise every signed-in user can use every feature. `send_jobs.user_email` records who started a send.
+- **First admin:** `ADMIN_EMAIL` + `ADMIN_PASSWORD` create one at startup (password must be changed at first login), or list Google accounts in `ADMIN_EMAILS`.
+
+Google sign-in has been tested against a fake token endpoint only, not against Google.
+
 ### Backups
 
 A snapshot `backups/wa-blast-YYYY-MM-DD.db` is written next to the database once per UTC day (first check 60 s after start, then every 6 h) and the newest `BACKUP_KEEP` are kept. They sit on the same volume as the database. `GET /api/backup` returns a fresh consistent copy for off-site storage, only when `BACKUP_TOKEN` is set.
 
 ## API
 
-All endpoints are unauthenticated.
+Without `AUTH_ENABLED=true` all endpoints are unauthenticated.
+
+### Login and users
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/login` | Login page |
+| GET | `/api/auth/config` | `{enabled, google, domain}` |
+| GET | `/api/auth/me` | `{authEnabled, user}`; `user` is null when signed out |
+| POST | `/api/auth/login` | `{email, password}`; 401 generic error, 429 when throttled |
+| POST | `/api/auth/logout` | End the session |
+| POST | `/api/auth/password` | `{current, next}`; also clears the must-change flag |
+| GET | `/auth/google`, `/auth/google/callback` | Google sign-in |
+| GET | `/api/users` | Admin: list users |
+| POST | `/api/users` | Admin: create `{name, email, role}`; returns a one-time password |
+| PATCH | `/api/users/:id` | Admin: `{role?, active?}`; the last admin cannot be removed |
+| POST | `/api/users/:id/reset-password` | Admin: new one-time password, signs the user out |
 
 ### Numbers
 
@@ -130,10 +160,12 @@ Without `sessionId`, the first connected number is used (or the first number of 
 
 - **sessions** — id, name, phone, status (`removed` for archived numbers), timestamps
 - **messages** — session_id, jid, direction, content, message_id, status (`sent`, `delivered`, `read`, `failed`, `received`), blast_job_id, sender_name, timestamps
-- **send_jobs** — id, type (`blast`/`quick`), session_id, session_name, session_phone, template, status, total, started_at, finished_at
+- **send_jobs** — id, type (`blast`/`quick`), session_id, session_name, session_phone, template, status, total, started_at, finished_at, user_email
 - **send_job_items** — job_id, idx, phone, content, status, error, message_id, created_at
 - **lid_map** — session_id, lid, pn: hidden ids of numbers this app sent to
 - **chat_insights** — session_id, jid, intent, level, summary, profile, next_step, model, message_count, analyzed_at
+- **users** — email (unique, case-insensitive), name, role, password_hash, google_sub, is_active, must_change_password, created_by, timestamps
+- **auth_sessions** — token_hash, user_id, expires_at
 
 At startup the database deletes incoming messages of chats this app did not start, hidden-id messages older than 3 days and stale `lid_map` rows, and marks leftover running jobs `interrupted`.
 
@@ -175,6 +207,12 @@ The Dockerfile copies `package.json` only and runs `npm install`, so builds are 
 | `ANTHROPIC_API_KEY` | unset | Enables customer-intent analysis |
 | `ANTHROPIC_MODEL` | `claude-opus-5-5` | Model used for analysis |
 | `INSIGHT_CONTEXT` | LM (gold bullion) buy/sell | Business context given to the model |
+| `AUTH_ENABLED` | unset | `true` turns login on |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | unset | Create the first admin (password account) at startup |
+| `ADMIN_EMAILS` | unset | Comma-separated Google accounts that are admins |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | unset | Enable Google sign-in |
+| `GOOGLE_ALLOWED_DOMAIN` | `pintarnya.com` | The only Google Workspace domain allowed in |
+| `PUBLIC_URL` | derived from the request | Base URL for the Google redirect URI (`<PUBLIC_URL>/auth/google/callback`) |
 
 ### Railway
 
@@ -182,7 +220,7 @@ The service is deployed with `railway up` from the working directory; nothing ti
 
 ## Known limits
 
-- No login: anyone with the URL can read every conversation, send, reply, remove numbers and download transcripts.
+- Until `AUTH_ENABLED=true` is set, anyone with the URL can read every conversation, send, reply, remove numbers and download transcripts. With login on, access is all-or-nothing per user: numbers and conversations are not yet separated by owner.
 - Load-tested only locally with fake WhatsApp sockets (up to 500 numbers blasting in parallel). Memory per real WhatsApp connection and the Railway container's capacity are unmeasured.
 - The tests replace WhatsApp with fake sockets. Nothing in the suite talks to real WhatsApp or the real Claude API.
 
@@ -192,4 +230,4 @@ The service is deployed with `railway up` from the working directory; nothing ti
 npm test
 ```
 
-`test/run.mjs` starts the real server once per suite (Node's `--experimental-test-module-mocks` swaps `src/sessions.js` for fake connected numbers), on port 3999, with the database in a temporary folder. Suites: parallel blasts, send history, list paging and search, the number limit, what is recorded and hidden-id matching, archived numbers and backups, reply/transcripts/analysis, and input hardening.
+`test/run.mjs` starts the real server once per suite (Node's `--experimental-test-module-mocks` swaps `src/sessions.js` for fake connected numbers), on port 3999, with the database in a temporary folder. Suites: parallel blasts, send history, list paging and search, the number limit, what is recorded and hidden-id matching, archived numbers and backups, reply/transcripts/analysis, input hardening, and login.
