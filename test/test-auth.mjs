@@ -28,14 +28,14 @@ function client() {
     const text = await r.text();
     let json = null;
     try { json = JSON.parse(text); } catch {}
-    return { status: r.status, json, text, location: r.headers.get("location"), setCookies, jar };
+    return { status: r.status, json, text, location: r.headers.get("location"), setCookies, jar, headers: r.headers };
   };
 }
 
 const fakeIdToken = (claims) => `x.${Buffer.from(JSON.stringify(claims)).toString("base64url")}.y`;
 
 try {
-  await boot();
+  const db = await boot();
   const auth = await import(pathToFileURL(`${REPO}/src/auth.js`).href);
   const ADMIN = process.env.ADMIN_EMAIL, ADMIN_PW = process.env.ADMIN_PASSWORD;
 
@@ -53,7 +53,13 @@ try {
   const loginPage = await anon("GET", "/login");
   assert.equal(loginPage.status, 200);
   assert.match(loginPage.text, /Masuk dengan Google/);
-  assert.equal((await anon("GET", "/health")).status === 401, false, "health check stays open for the platform");
+  const health = await anon("GET", "/health");
+  assert.notEqual(health.status, 401, "health check stays open for the platform");
+  assert.equal(health.json.sessions, undefined, "but it no longer lists numbers and phone numbers");
+  assert.equal(typeof health.json.connectedNumbers, "number");
+  assert.equal(loginPage.headers.get("x-frame-options"), "DENY");
+  assert.equal((await anon("GET", "/api/sessions")).headers.get("cache-control"), "no-store");
+  assert.equal((await anon("GET", "/api/sessions", null, { Cookie: "wa_session=%E0%A4%A; rusak" })).status, 401, "a malformed cookie is ignored, not a crash");
   assert.deepEqual((await anon("GET", "/api/auth/config")).json, { enabled: true, google: true, domain: "pintarnya.com" });
   assert.deepEqual((await anon("GET", "/api/auth/me")).json, { authEnabled: true, user: null });
   console.log("ok  pages redirect to /login and every API answers 401 without a session");
@@ -173,7 +179,8 @@ try {
   for (const [label, claims, code] of [
     ["another domain", good({ email: "orang@gmail.com", hd: undefined }), "domain"],
     ["look-alike domain", good({ email: "x@pintarnya.com.evil.com", hd: "pintarnya.com.evil.com" }), "domain"],
-    ["right email, wrong hosted domain", good({ hd: "lain.com" }), "domain"],
+    ["personal Google account registered with a company address", good({ hd: undefined }), "domain"],
+    ["company-looking address in another organisation's domain", good({ email: "x@pintarnya.co", hd: "pintarnya.co" }), "domain"],
     ["unverified email", good({ email_verified: false }), "unverified"],
     ["token for another app", good({ aud: "client-lain" }), "google"],
     ["wrong issuer", good({ iss: "https://evil.example" }), "google"],
@@ -190,6 +197,33 @@ try {
   assert.equal((await forged("GET", "/auth/google/callback?code=abc&state=bukan-state-saya")).location, "/login?error=state");
   assert.equal((await client()("GET", "/auth/google/callback?code=abc&state=apa-saja")).location, "/login?error=state", "no state cookie");
   console.log("ok  Google sign-in refuses other domains, unverified emails, foreign tokens and forged state");
+
+  // ── edge cases around Google
+  const alias = await signIn(good({ email: "alias@pintarnya.com", sub: "g-77", hd: "pandai-group.com", name: "Alias" }));
+  assert.equal(alias.back.location, "/", "an organisation whose primary domain differs from the address domain is accepted");
+  const cancel = client();
+  const cancelState = new URL((await cancel("GET", "/auth/google")).location).searchParams.get("state");
+  assert.equal((await cancel("GET", `/auth/google/callback?error=access_denied&state=${cancelState}`)).location, "/login?error=cancelled");
+  console.log("ok  Google: alias-domain organisations are accepted and a cancelled sign-in is reported as cancelled");
+
+  // ── an account that still has a one-time password (like the first admin) can use Google straight away
+  const dinaMade = await boss.c("POST", "/api/users", { name: "Dina", email: "dina@pintarnya.com" });
+  const dinaTemp = dinaMade.json.temporaryPassword;
+  const dina = await signIn(good({ email: "dina@pintarnya.com", sub: "g-55", name: "Dina" }));
+  assert.equal(dina.back.location, "/");
+  assert.equal((await dina.c("GET", "/api/auth/me")).json.user.mustChangePassword, false, "a Google session is not asked for the temporary password");
+  assert.equal((await dina.c("GET", "/api/sessions")).status, 200);
+  const dinaPw = client();
+  assert.equal((await dinaPw("POST", "/api/auth/login", { email: "dina@pintarnya.com", password: dinaTemp })).json.user.mustChangePassword, true);
+  assert.equal((await dinaPw("GET", "/api/sessions")).status, 403, "but signing in with the temporary password still forces a new one");
+  db.default.prepare("UPDATE users SET temp_expires_at = datetime('now', '-1 day') WHERE email = ?").run("dina@pintarnya.com");
+  const stale = await client()("POST", "/api/auth/login", { email: "dina@pintarnya.com", password: dinaTemp });
+  assert.equal(stale.status, 401);
+  assert.match(stale.json.error, /kedaluwarsa/);
+  assert.equal((await dina.c("GET", "/api/sessions")).status, 200, "the Google session is unaffected");
+  const bossRow = (await boss.c("GET", "/api/users")).json.find((u) => u.email === "boss@pintarnya.com");
+  assert.equal((await boss.c("POST", `/api/users/${bossRow.id}/reset-password`)).status, 400, "an admin cannot reset (and sign out) themselves by accident");
+  console.log("ok  temporary passwords: not demanded from Google sessions, still enforced for password sessions, expire after a week");
 
   // ── a deactivated Google account stays out
   const bintang = (await boss.c("GET", "/api/users")).json.find((u) => u.email === "bintang@pintarnya.com");
