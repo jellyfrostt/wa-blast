@@ -66,13 +66,14 @@ Off unless `ANTHROPIC_API_KEY` is set. For one conversation, the last 80 message
 
 ### Login
 
-Off by default so an existing deployment keeps working. With `AUTH_ENABLED=true`, every page redirects to `/login` and every API answers 401 without a session (exceptions: `/health`, and `/api/backup` which has its own token).
+Off by default so an existing deployment keeps working. With `AUTH_ENABLED=true`, every page redirects to `/login` and every API answers 401 without a session (exceptions: `/health`, which then reports only a count of connected numbers, and `/api/backup` which has its own token).
 
-- **Google:** authorization-code flow restricted to `GOOGLE_ALLOWED_DOMAIN` (default `pintarnya.com`): the `hd` parameter is sent, and the returned ID token must have the right audience and issuer, a verified email, and both email and hosted domain on that domain. A first-time user gets a `member` account; emails in `ADMIN_EMAILS` become `admin`.
-- **Email + password:** accounts are created by an admin (no self-signup). The server generates a one-time password that the user must replace at first login. Passwords are hashed with scrypt. Login is throttled to 8 failures per 15 minutes per IP and email, and answers the same for unknown emails and wrong passwords.
+- **Google:** authorization-code flow restricted to `GOOGLE_ALLOWED_DOMAIN` (default `pintarnya.com`): the `hd` parameter is sent, and the returned ID token must have the right audience and issuer, a verified email on an allowed domain, and a hosted-domain claim (so a personal Google account registered with a company address is refused, while an organisation whose primary domain differs from the address domain is accepted). `GOOGLE_ALLOWED_DOMAIN` may list several domains separated by commas. A first-time user gets a `member` account; emails in `ADMIN_EMAILS` become `admin`.
+- **Email + password:** accounts are created by an admin (no self-signup). The server generates a one-time password, valid for 7 days, that the user must replace when signing in with it. A Google session on the same account is not held back by it. Passwords are hashed with scrypt. Login is throttled to 8 failures per 15 minutes per IP and email, and answers the same for unknown emails and wrong passwords.
 - **Sessions:** a random token in an `HttpOnly`, `SameSite=Lax` cookie (`Secure` over https), valid 7 days; only its SHA-256 is stored. State-changing requests whose `Origin` is another site are refused.
 - **Roles:** `admin` manages users; otherwise every signed-in user can use every feature. `send_jobs.user_email` records who started a send.
-- **First admin:** `ADMIN_EMAIL` + `ADMIN_PASSWORD` create one at startup (password must be changed at first login), or list Google accounts in `ADMIN_EMAILS`.
+- **First admin:** `ADMIN_EMAIL` + `ADMIN_PASSWORD` create one at startup (password must be changed at first login), or list Google accounts in `ADMIN_EMAILS`. While that account has not set its own password, each start re-applies `ADMIN_PASSWORD`, which is the way back in after the one-time password expires. An account in `ADMIN_EMAIL` or `ADMIN_EMAILS` is restored to admin on start or on Google sign-in.
+- **Headers:** every response carries `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` and `Referrer-Policy: same-origin`; with login on, API responses are `Cache-Control: no-store`.
 
 Google sign-in has been tested against a fake token endpoint only, not against Google.
 
@@ -151,7 +152,7 @@ Without `sessionId`, the first connected number is used (or the first number of 
 | GET | `/api/blast/:jobId/stats` | Delivery counts for a blast |
 | GET | `/api/connection-log` | Connection events `?sessionId=` |
 | GET | `/api/backup` | Database copy; needs `BACKUP_TOKEN` and `Authorization: Bearer <token>` |
-| GET | `/health` | 200 when at least one number is connected, else 503 |
+| GET | `/health` | 200 when at least one number is connected, else 503; lists numbers only while login is off |
 | GET | `/qr` | Legacy page listing pending QR codes |
 
 ## Data
@@ -211,7 +212,7 @@ The Dockerfile copies `package.json` only and runs `npm install`, so builds are 
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | unset | Create the first admin (password account) at startup |
 | `ADMIN_EMAILS` | unset | Comma-separated Google accounts that are admins |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | unset | Enable Google sign-in |
-| `GOOGLE_ALLOWED_DOMAIN` | `pintarnya.com` | The only Google Workspace domain allowed in |
+| `GOOGLE_ALLOWED_DOMAIN` | `pintarnya.com` | Email domain(s) allowed through Google sign-in, comma-separated |
 | `PUBLIC_URL` | derived from the request | Base URL for the Google redirect URI (`<PUBLIC_URL>/auth/google/callback`) |
 
 ### Railway

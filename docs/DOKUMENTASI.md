@@ -9,7 +9,7 @@ WA Blast adalah dashboard web untuk mengirim pesan WhatsApp ke banyak nomor dari
 - Dipakai oleh anggota tim yang tidak teknis, jadi semua teks di layar memakai bahasa Indonesia sederhana.
 - Terhubung ke WhatsApp lewat pustaka Baileys, yaitu cara tidak resmi yang meniru WhatsApp Web. Ini bukan WhatsApp Business API.
 - Berjalan di Railway sebagai satu server dengan database SQLite. Alamat produksi: `https://whatsapp-service-production-0bbd.up.railway.app`.
-- Login sudah tersedia di kode tetapi mati sampai diaktifkan (bagian 5). Selama mati, siapa pun yang punya alamatnya bisa memakai semua fitur.
+- Login sudah aktif di produksi (bagian 5): masuk dengan Google kantor atau akun buatan admin.
 
 ## 2. Fitur per menu
 
@@ -91,7 +91,7 @@ Catatan soal nomor tersembunyi: WhatsApp kadang mengirim pesan dengan ID tersemb
 
 ## 5. Login
 
-Mati secara bawaan supaya aplikasi yang sedang berjalan tidak tiba-tiba terkunci. Aktif kalau `AUTH_ENABLED=true`.
+Di kode, login mati secara bawaan dan aktif kalau `AUTH_ENABLED=true`. Di produksi sudah aktif.
 
 Dua cara masuk, dipilih lewat dua tombol di halaman masuk:
 
@@ -102,12 +102,15 @@ Aturan:
 
 - Dua peran: Admin (mengelola pengguna) dan Anggota. Selain mengelola pengguna, semua orang yang sudah masuk bisa memakai semua fitur dan melihat semua nomor serta percakapan. Pemisahan nomor per pemilik belum ada.
 - Sesi berlaku 7 hari. Menonaktifkan akun atau mengatur ulang password langsung mengeluarkan orangnya.
+- Password sementara berlaku 7 hari. Kalau tidak dipakai sampai lewat, admin perlu mengatur ulang.
+- Orang yang punya password sementara tetapi masuk lewat Google tidak diminta mengganti password. Kewajiban ganti hanya berlaku kalau ia masuk memakai password sementara itu.
+- Masuk dengan Google hanya menerima akun Google organisasi (Workspace) dengan email `@pintarnya.com`. Akun Google pribadi yang didaftarkan memakai alamat kantor ditolak.
 - Salah password 8 kali dalam 15 menit membuat percobaan berikutnya ditolak sementara.
 - Lupa password: admin mengatur ulang dari menu Pengguna.
 
 Yang perlu disiapkan untuk mengaktifkan:
 
-1. Akun admin pertama: isi `ADMIN_EMAIL` dan `ADMIN_PASSWORD` (password ini wajib diganti saat pertama masuk), atau isi `ADMIN_EMAILS` dengan email Google kantor yang dijadikan admin.
+1. Akun admin pertama: isi `ADMIN_EMAIL` dan `ADMIN_PASSWORD` (password ini wajib diganti saat pertama masuk), atau isi `ADMIN_EMAILS` dengan email Google kantor yang dijadikan admin. Selama admin itu belum membuat password sendiri, tiap server menyala password dari `ADMIN_PASSWORD` diberlakukan lagi; itulah jalan masuk kalau password sementaranya kedaluwarsa.
 2. Untuk tombol Google: buat OAuth client di Google Cloud dengan redirect URI `https://whatsapp-service-production-0bbd.up.railway.app/auth/google/callback`, lalu isi `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, dan `PUBLIC_URL`.
 3. Isi `AUTH_ENABLED=true`, lalu deploy.
 
@@ -137,7 +140,7 @@ Tanpa langkah 2, tombol Google tidak muncul dan hanya email dan password yang bi
 ### Deploy
 
 1. Jalankan `npm test`.
-2. Pastikan tidak ada pengiriman yang sedang berjalan: buka Riwayat, tidak boleh ada yang berstatus "Sedang berjalan". Deploy me-restart server dan memutus pengiriman yang sedang jalan.
+2. Pastikan tidak ada pengiriman yang sedang berjalan: masuk ke dashboard, buka Riwayat, tidak boleh ada yang berstatus "Sedang berjalan". Deploy me-restart server dan memutus pengiriman yang sedang jalan.
 3. Dari folder project, pada commit yang mau di-deploy: `railway up`.
 4. Setelah selesai, buka dashboard dan cek nomor tersambung lagi. Nomor tersambung sendiri dalam beberapa detik.
 
@@ -152,7 +155,7 @@ Railway tidak terhubung ke branch git mana pun. Yang ter-deploy adalah isi folde
 | `BACKUP_KEEP` | Jumlah backup harian | Tidak diisi, jadi 7 |
 | `BACKUP_TOKEN` | Mengaktifkan unduhan backup | Tidak diisi, jadi mati |
 | `ANTHROPIC_API_KEY` | Mengaktifkan analisis AI | Tidak diisi, jadi mati |
-| `AUTH_ENABLED` dan variable login lain | Mengaktifkan login | Tidak diisi, jadi mati |
+| `AUTH_ENABLED` dan variable login lain | Mengaktifkan login | Sudah diisi, login aktif |
 
 Catatan: saat mengisi variable yang nilainya diawali `/` lewat Git Bash di Windows, nilainya bisa berubah menjadi path Windows. Pakai PowerShell.
 
@@ -186,7 +189,6 @@ Uji beban lokal (WhatsApp palsu, laptop Windows): 500 nomor mengirim bersamaan d
 
 ## 9. Risiko dan batasan yang diketahui
 
-- **Login belum aktif.** Sampai diaktifkan, semua orang yang punya alamatnya bisa membaca semua percakapan, mengirim, membalas, menghapus nomor, mengunduh transkrip, dan menjalankan analisis AI.
 - **Belum ada pemisahan per pemilik.** Setelah login aktif pun, semua pengguna melihat semua nomor dan percakapan.
 - **Risiko blokir WhatsApp.** Baileys bukan jalur resmi. Pengiriman massal dari nomor biasa bisa membuat nomor diblokir. Jeda dan batas kegagalan mengurangi risikonya, tidak menghilangkannya.
 - **Kapasitas belum terukur.** Memori per koneksi WhatsApp asli dan kemampuan server Railway belum pernah diukur. Batas 10 nomor adalah titik awal yang aman, bukan hasil pengukuran.
