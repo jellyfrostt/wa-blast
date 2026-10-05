@@ -12,7 +12,7 @@ import { newJobId, recordJobStart, recordJobItem, recordJobFinish } from "./hist
 import { formatPhone, displayPhone } from "./phone.js";
 import { startBackups, createSnapshot } from "./backup.js";
 import { insightsEnabled, insightModel, analyzeChat, chatsNeedingAnalysis } from "./insights.js";
-import { mountAuth } from "./auth.js";
+import { mountAuth, authEnabled } from "./auth.js";
 import { timingSafeEqual } from "crypto";
 import { unlink } from "fs/promises";
 
@@ -67,7 +67,7 @@ app.get("/health", (_req, res) => {
   const connected = sessions.filter(s => s.connected);
   res.status(connected.length > 0 ? 200 : 503).json({
     status: connected.length > 0 ? "connected" : "disconnected",
-    sessions: sessions.map(s => ({ id: s.id, name: s.name, phone: s.phone ? `+${s.phone}` : null, connected: s.connected })),
+    ...(authEnabled() ? { connectedNumbers: connected.length } : { sessions: sessions.map(s => ({ id: s.id, name: s.name, phone: s.phone ? `+${s.phone}` : null, connected: s.connected })) }),
     contacts: getUpload()?.rows.length ?? 0,
   });
 });
