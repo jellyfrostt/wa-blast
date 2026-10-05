@@ -19,11 +19,14 @@ const SESSION_DAYS = 7;
 const MIN_PASSWORD = 8;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 8;
+const TEMP_PASSWORD_DAYS = 7;
 const ROLES = ["admin", "member"];
 
 export const authEnabled = () => process.env.AUTH_ENABLED === "true";
 const googleEnabled = () => !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
-const allowedDomain = () => (process.env.GOOGLE_ALLOWED_DOMAIN || "pintarnya.com").trim().toLowerCase();
+const allowedDomains = () =>
+  String(process.env.GOOGLE_ALLOWED_DOMAIN || "pintarnya.com").toLowerCase().split(",").map((s) => s.trim().replace(/^@/, "")).filter(Boolean);
+const allowedDomain = () => allowedDomains()[0] || "pintarnya.com";
 const adminEmails = () =>
   new Set(String(process.env.ADMIN_EMAILS || "").toLowerCase().split(",").map((s) => s.trim()).filter(Boolean));
 
@@ -53,6 +56,11 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 `);
+const hasColumn = (table, column) => db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === column);
+// How the session was opened: only a password session can be told to replace a temporary password.
+if (!hasColumn("auth_sessions", "via")) db.exec("ALTER TABLE auth_sessions ADD COLUMN via TEXT NOT NULL DEFAULT 'password'");
+// A one-time password that is never used must not stay valid forever.
+if (!hasColumn("users", "temp_expires_at")) db.exec("ALTER TABLE users ADD COLUMN temp_expires_at TEXT");
 db.prepare("DELETE FROM auth_sessions WHERE expires_at < datetime('now')").run();
 
 const q = {
@@ -64,14 +72,17 @@ const q = {
   insertUser: db.prepare(
     "INSERT INTO users (email, name, role, password_hash, google_sub, must_change_password, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)"
   ),
-  setPassword: db.prepare("UPDATE users SET password_hash = ?, must_change_password = ? WHERE id = ?"),
+  setPassword: db.prepare("UPDATE users SET password_hash = ?, must_change_password = 0, temp_expires_at = NULL WHERE id = ?"),
+  setTempPassword: db.prepare("UPDATE users SET password_hash = ?, must_change_password = 1, temp_expires_at = datetime('now', ?) WHERE id = ?"),
+  tempExpired: db.prepare("SELECT 1 FROM users WHERE id = ? AND must_change_password = 1 AND temp_expires_at IS NOT NULL AND temp_expires_at < datetime('now')"),
   setRole: db.prepare("UPDATE users SET role = ? WHERE id = ?"),
   setActive: db.prepare("UPDATE users SET is_active = ? WHERE id = ?"),
   setGoogle: db.prepare("UPDATE users SET google_sub = ? WHERE id = ?"),
   touchLogin: db.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?"),
-  insertSession: db.prepare("INSERT INTO auth_sessions (token_hash, user_id, expires_at) VALUES (?, ?, datetime('now', ?))"),
+  insertSession: db.prepare("INSERT INTO auth_sessions (token_hash, user_id, expires_at, via) VALUES (?, ?, datetime('now', ?), ?)"),
+  deleteExpiredSessions: db.prepare("DELETE FROM auth_sessions WHERE expires_at < datetime('now')"),
   sessionUser: db.prepare(`
-    SELECT u.* FROM auth_sessions s JOIN users u ON u.id = s.user_id
+    SELECT u.*, s.via AS session_via FROM auth_sessions s JOIN users u ON u.id = s.user_id
     WHERE s.token_hash = ? AND s.expires_at > datetime('now') AND u.is_active = 1
   `),
   deleteSession: db.prepare("DELETE FROM auth_sessions WHERE token_hash = ?"),
@@ -113,7 +124,8 @@ function readCookies(req) {
   const out = {};
   for (const part of String(req.headers.cookie || "").split(";")) {
     const i = part.indexOf("=");
-    if (i > 0) out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+    if (i <= 0) continue;
+    try { out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim()); } catch {}
   }
   return out;
 }
@@ -126,9 +138,10 @@ function setCookie(req, res, name, value, maxAgeSeconds) {
 
 const hashToken = (token) => createHash("sha256").update(token).digest("hex");
 
-function startSession(req, res, user) {
+function startSession(req, res, user, via) {
   const token = randomBytes(32).toString("base64url");
-  q.insertSession.run(hashToken(token), user.id, `+${SESSION_DAYS} days`);
+  q.deleteExpiredSessions.run();
+  q.insertSession.run(hashToken(token), user.id, `+${SESSION_DAYS} days`, via);
   q.touchLogin.run(user.id);
   setCookie(req, res, SESSION_COOKIE, token, SESSION_DAYS * 24 * 60 * 60);
 }
@@ -140,13 +153,17 @@ function currentUser(req) {
   return user ? { ...user, sessionHash: hashToken(token) } : null;
 }
 
+// A temporary password only has to be replaced by someone who signed in with it. Signing in with
+// Google proves the identity on its own, so that session is not held back.
+const mustChangeNow = (user) => !!user.must_change_password && user.session_via !== "google";
+
 const publicUser = (u) => ({
   id: u.id,
   email: u.email,
   name: u.name,
   role: u.role,
   active: !!u.is_active,
-  mustChangePassword: !!u.must_change_password,
+  mustChangePassword: u.session_via ? mustChangeNow(u) : !!u.must_change_password,
   hasPassword: !!u.password_hash,
   google: !!u.google_sub,
   lastLoginAt: u.last_login_at,
@@ -180,11 +197,18 @@ async function bootstrapAdmin(logger) {
   if (email && password) {
     const existing = q.userByEmail.get(email);
     if (!existing) {
-      q.insertUser.run(email, "Admin", "admin", await hashPassword(password), null, 1, "bootstrap");
+      q.insertUser.run(email, "Admin", "admin", null, null, 0, "bootstrap");
+      q.setTempPassword.run(await hashPassword(password), `+${TEMP_PASSWORD_DAYS} days`, q.userByEmail.get(email).id);
       logger.info({ email }, "First admin account created from ADMIN_EMAIL; the password must be changed at first login");
-    } else if (existing.role !== "admin" || !existing.is_active) {
-      q.setRole.run("admin", existing.id);
-      q.setActive.run(1, existing.id);
+    } else {
+      if (existing.role !== "admin" || !existing.is_active) {
+        q.setRole.run("admin", existing.id);
+        q.setActive.run(1, existing.id);
+      }
+      // Still on a one-time password (or none): ADMIN_PASSWORD is the way back in after it expires.
+      if (!existing.password_hash || existing.must_change_password) {
+        q.setTempPassword.run(await hashPassword(password), `+${TEMP_PASSWORD_DAYS} days`, existing.id);
+      }
     }
   }
   if (!q.countActiveAdmins.get().n && !adminEmails().size) {
@@ -219,7 +243,16 @@ async function googleIdentity(req, code) {
   if (claims.aud !== process.env.GOOGLE_CLIENT_ID || !issuerOk || !(claims.exp * 1000 > Date.now())) throw new Error("google");
   const email = String(claims.email || "").toLowerCase();
   if (claims.email_verified !== true && claims.email_verified !== "true") throw new Error("unverified");
-  if (!email.endsWith(`@${allowedDomain()}`) || String(claims.hd || "").toLowerCase() !== allowedDomain()) throw new Error("domain");
+  // The address must be on an allowed domain and the account must belong to a Google Workspace
+  // organisation (hd present): Google only lets an organisation issue addresses on domains it owns,
+  // while a personal Google account registered with a company address has no hd. The organisation's
+  // primary domain may differ from the address domain, so hd itself is not compared.
+  const domain = email.split("@")[1] || "";
+  if (!allowedDomains().includes(domain) || !claims.hd) {
+    const err = new Error("domain");
+    err.detail = { emailDomain: domain, hostedDomain: claims.hd ? String(claims.hd) : null };
+    throw err;
+  }
   return { email, name: String(claims.name || email.split("@")[0]), sub: String(claims.sub || "") };
 }
 
@@ -228,8 +261,16 @@ async function googleIdentity(req, code) {
 export function mountAuth(app, logger) {
   app.set("trust proxy", 1);
 
+  app.use((req, res, next) => {
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Referrer-Policy", "same-origin");
+    if (authEnabled() && req.path.startsWith("/api/")) res.setHeader("Cache-Control", "no-store");
+    next();
+  });
+
   app.get("/api/auth/config", (_req, res) => {
-    res.json({ enabled: authEnabled(), google: authEnabled() && googleEnabled(), domain: allowedDomain() });
+    res.json({ enabled: authEnabled(), google: authEnabled() && googleEnabled(), domain: allowedDomains().join(", @") });
   });
 
   if (!authEnabled()) {
@@ -272,10 +313,14 @@ export function mountAuth(app, logger) {
         logger.warn({ email }, "Login failed");
         return res.status(401).json({ error: "Email atau password salah." });
       }
+      if (q.tempExpired.get(user.id)) {
+        logger.warn({ email }, "Login with an expired temporary password");
+        return res.status(401).json({ error: "Password sementara itu sudah kedaluwarsa. Minta admin mengatur ulang password-mu." });
+      }
       attempts.delete(key);
-      startSession(req, res, user);
+      startSession(req, res, user, "password");
       logger.info({ email }, "Login");
-      res.json({ user: publicUser(user) });
+      res.json({ user: publicUser({ ...user, session_via: "password" }) });
     } catch (err) {
       logger.error({ err: err.message }, "Login error");
       res.status(500).json({ error: "Gagal masuk. Coba lagi." });
@@ -299,9 +344,9 @@ export function mountAuth(app, logger) {
       response_type: "code",
       scope: "openid email profile",
       state,
-      hd: allowedDomain(),
       prompt: "select_account",
     });
+    if (allowedDomains().length === 1) params.set("hd", allowedDomain());
     res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
   });
 
@@ -312,6 +357,7 @@ export function mountAuth(app, logger) {
     const given = Buffer.from(String(req.query.state || ""));
     setCookie(req, res, STATE_COOKIE, "", 0);
     if (!expected.length || expected.length !== given.length || !timingSafeEqual(expected, given)) return fail("state");
+    if (req.query.error === "access_denied") return fail("cancelled");
     if (!req.query.code) return fail("google");
     try {
       const id = await googleIdentity(req, String(req.query.code));
@@ -325,12 +371,12 @@ export function mountAuth(app, logger) {
         if (!user.google_sub) q.setGoogle.run(id.sub, user.id);
         if (shouldBeAdmin && user.role !== "admin") q.setRole.run("admin", user.id);
       }
-      startSession(req, res, user);
+      startSession(req, res, user, "google");
       logger.info({ email: id.email }, "Login with Google");
       res.redirect("/");
     } catch (err) {
       const code = ["domain", "unverified"].includes(err.message) ? err.message : "google";
-      logger.warn({ reason: code }, "Google login refused");
+      logger.warn({ reason: code, ...(err.detail || {}) }, "Google login refused");
       fail(code);
     }
   });
@@ -342,7 +388,7 @@ export function mountAuth(app, logger) {
     const user = currentUser(req);
     const isApi = req.path.startsWith("/api/");
     if (!user) return isApi ? res.status(401).json({ error: "Silakan masuk dulu." }) : res.redirect("/login");
-    if (user.must_change_password && req.path !== "/api/auth/password") {
+    if (mustChangeNow(user) && req.path !== "/api/auth/password") {
       return isApi
         ? res.status(403).json({ error: "Ganti password sementara dulu.", mustChangePassword: true })
         : res.redirect("/login");
@@ -358,7 +404,7 @@ export function mountAuth(app, logger) {
     if (next.length < MIN_PASSWORD) return res.status(400).json({ error: `Password baru minimal ${MIN_PASSWORD} karakter.` });
     if (next === current) return res.status(400).json({ error: "Password baru harus berbeda dari yang lama." });
     if (!(await verifyPassword(current, req.user.password_hash))) return res.status(400).json({ error: "Password lama salah." });
-    q.setPassword.run(await hashPassword(next), 0, req.user.id);
+    q.setPassword.run(await hashPassword(next), req.user.id);
     q.deleteOtherSessions.run(req.user.id, req.user.sessionHash);
     res.json({ ok: true });
   });
@@ -379,7 +425,8 @@ export function mountAuth(app, logger) {
     if (!name) return res.status(400).json({ error: "Isi nama orangnya." });
     if (q.userByEmail.get(email)) return res.status(409).json({ error: "Email itu sudah terdaftar." });
     const password = temporaryPassword();
-    q.insertUser.run(email, name.slice(0, 120), role, await hashPassword(password), null, 1, req.user.email);
+    q.insertUser.run(email, name.slice(0, 120), role, null, null, 0, req.user.email);
+    q.setTempPassword.run(await hashPassword(password), `+${TEMP_PASSWORD_DAYS} days`, q.userByEmail.get(email).id);
     logger.info({ email, role, by: req.user.email }, "User created");
     res.json({ user: publicUser(q.userByEmail.get(email)), temporaryPassword: password });
   });
@@ -408,8 +455,9 @@ export function mountAuth(app, logger) {
   app.post("/api/users/:id/reset-password", adminOnly, async (req, res) => {
     const target = q.userById.get(Number(req.params.id));
     if (!target) return res.status(404).json({ error: "Pengguna tidak ditemukan." });
+    if (target.id === req.user.id) return res.status(400).json({ error: "Untuk akun sendiri, pakai Ganti password." });
     const password = temporaryPassword();
-    q.setPassword.run(await hashPassword(password), 1, target.id);
+    q.setTempPassword.run(await hashPassword(password), `+${TEMP_PASSWORD_DAYS} days`, target.id);
     q.deleteUserSessions.run(target.id);
     logger.info({ email: target.email, by: req.user.email }, "Password reset");
     res.json({ temporaryPassword: password });
