@@ -1993,6 +1993,8 @@
         document.querySelectorAll(".js-auth-domain").forEach((el) => { el.textContent = "@" + c.domain; });
       } catch {}
       document.querySelectorAll(".js-auth-on").forEach((el) => { el.hidden = false; });
+      // The admin-only page could not open before we knew who is signed in.
+      if (location.hash === "#pengguna" && me.role === "admin") showPage("pengguna", { focus: false, replace: true });
       document.querySelectorAll(".js-auth-off").forEach((el) => { el.hidden = true; });
     }
 
