@@ -64,6 +64,8 @@ Membuat akun untuk orang yang emailnya di luar domain kantor, mengatur ulang pas
 
 Panduan mulai empat langkah dan daftar tanya jawab yang bisa dicari. Isinya harus ikut diperbarui setiap kali perilaku aplikasi berubah.
 
+Pencariannya sengaja longgar karena pemakainya bukan orang teknis: bahasa sehari-hari dan singkatan ("ga kekirim", "nyambungin wa", "tdk bs masuk") dan salah ketik ringan tetap menemukan jawaban yang tepat, jawaban teratas langsung dibuka, dan ada tombol topik untuk yang tidak mau mengetik. Setiap jawaban punya kata kunci sehari-hari di atribut `data-k`; saat menambah jawaban baru, isi juga kata kuncinya dan tambahkan contoh pertanyaan ke `test/test-faq-search.mjs`.
+
 ## 3. Apa yang direkam
 
 Ini aturan terpenting di aplikasi, karena menyangkut privasi pemilik nomor dan pelanggan.
