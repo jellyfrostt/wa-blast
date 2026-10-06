@@ -275,6 +275,13 @@
     .faq .answer li { margin-bottom: 4px; }
     .faq .answer p + p { margin-top: 8px; }
     .faq h2 { font-size: 18px; font-weight: 600; margin: 24px 0 10px; }
+    .faq { display: flex; flex-direction: column; }
+    .faq.searching h2, .faq .faq-nomatch { display: none; }
+    .faq #faqEmpty { order: 999; }
+    .topics { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .topic { min-height: 40px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--c-border); background: var(--c-card); color: var(--c-fg); font-weight: 500; cursor: pointer; transition: background-color 0.15s ease, border-color 0.15s ease; }
+    .topic:hover { background: var(--c-primary-soft); border-color: #BFDBFE; }
+    .faq-status { margin-top: 12px; color: var(--c-muted-fg); font-size: 15px; min-height: 22px; }
 
     /* Toasts + modal */
     .toasts { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; z-index: 60; width: max-content; max-width: min(460px, calc(100vw - 32px)); pointer-events: none; }
@@ -589,41 +596,52 @@
           </div>
 
           <div class="field">
-            <label for="faqSearch">Cari pertanyaan</label>
-            <input type="search" id="faqSearch" placeholder="Ketik kata kunci, misalnya: gagal, QR, file">
+            <label for="faqSearch">Ada yang mau ditanyakan?</label>
+            <input type="search" id="faqSearch" placeholder="Tulis saja dengan kata-katamu, misalnya: kenapa pesan saya tidak terkirim" autocomplete="off">
+            <p class="hint">Tidak perlu kata yang persis. Salah ketik sedikit juga tidak apa-apa.</p>
+            <div class="topics" aria-label="Topik yang sering dicari">
+              <button type="button" class="topic" data-action="faq-topic" data-q="cara hubungkan nomor">Hubungkan nomor</button>
+              <button type="button" class="topic" data-action="faq-topic" data-q="nomor terputus">Nomor terputus</button>
+              <button type="button" class="topic" data-action="faq-topic" data-q="pesan gagal terkirim">Pesan gagal</button>
+              <button type="button" class="topic" data-action="faq-topic" data-q="file kontak">File kontak</button>
+              <button type="button" class="topic" data-action="faq-topic" data-q="pengiriman lama">Pengiriman lama</button>
+              <button type="button" class="topic" data-action="faq-topic" data-q="unduh data percakapan">Unduh data chat</button>
+              <button type="button" class="topic js-auth-on" data-action="faq-topic" data-q="lupa password" hidden>Lupa password</button>
+            </div>
+            <p class="faq-status" id="faqStatus" role="status" aria-live="polite"></p>
           </div>
           <div class="faq" id="faq">
             <h2>Menghubungkan nomor</h2>
-            <details><summary>Bagaimana cara menghubungkan nomor WhatsApp?</summary><div class="answer"><ol><li>Buka menu <strong>Nomor WhatsApp</strong>, isi nama, lalu klik <strong>Tambah nomor</strong>.</li><li>Di HP, buka WhatsApp lalu masuk ke <strong>Perangkat tertaut</strong> (ada di menu titik tiga atau Setelan).</li><li>Kalau sudah ada perangkat lain di daftar itu, keluarkan dulu.</li><li>Ketuk <strong>Tautkan perangkat</strong> dan arahkan kamera ke kode QR di layar.</li><li>Tunggu sampai statusnya berubah menjadi <strong>Terhubung</strong>.</li></ol></div></details>
-            <details id="faq-linked"><summary>Bolehkah nomornya tetap tertaut ke WhatsApp Web atau perangkat lain?</summary><div class="answer"><p>Jangan. Nomor yang dipakai di sini hanya boleh tertaut ke aplikasi ini, supaya nomor itu tidak dipakai mengirim dari tempat lain di waktu yang sama.</p><p>Cara memastikannya:</p><ol><li>Di HP, buka WhatsApp lalu masuk ke <strong>Perangkat tertaut</strong>.</li><li>Lihat daftar perangkatnya. Setelah berhasil dihubungkan, aplikasi ini muncul di sana, biasanya dengan nama browser seperti Chrome atau Windows.</li><li>Kalau ada perangkat lain, ketuk perangkat itu lalu pilih <strong>Keluar</strong>.</li></ol><p>WhatsApp di HP itu sendiri tetap bisa dipakai seperti biasa. Aplikasi ini belum bisa memeriksa daftar tersebut secara otomatis, jadi perlu dicek sendiri di HP.</p></div></details>
-            <details><summary>Kamera HP saya tidak bisa scan kode QR. Ada cara lain?</summary><div class="answer"><p>Ada. Di kartu nomor tersebut klik <strong>Pakai kode</strong>, isi nomor HP-nya, lalu klik <strong>Minta kode</strong>. Di HP, pada layar Tautkan perangkat pilih <strong>Tautkan dengan nomor telepon</strong> dan masukkan kode yang muncul.</p></div></details>
-            <details><summary>Status nomor saya "Terputus" atau "Menunggu scan QR". Harus bagaimana?</summary><div class="answer"><p>Kalau koneksi putus sebentar, sistem mencoba menyambung lagi sendiri sampai 8 kali. Kalau tetap gagal, statusnya menjadi Terputus dan muncul tombol <strong>Sambungkan ulang</strong> di kartu nomor itu. Kalau statusnya <strong>Menunggu scan QR</strong>, berarti nomor perlu dihubungkan ulang: scan kode QR yang muncul di menu Nomor WhatsApp.</p><p>Nomor juga bisa terputus kalau dikeluarkan dari daftar Perangkat tertaut di HP.</p></div></details>
-            <details><summary>Bisakah menghubungkan lebih dari satu nomor?</summary><div class="answer"><p>Bisa, sampai <strong><span class="js-max">10</span> nomor</strong>. Tambahkan satu per satu di menu Nomor WhatsApp. Saat mengirim, kamu tinggal memilih mau kirim dari nomor yang mana.</p><p>Kalau sudah penuh, hapus dulu nomor yang tidak dipakai. Batas ini bisa dinaikkan oleh admin aplikasi.</p></div></details>
+            <details data-k="hubungkan sambungkan konek connect tautkan scan qr barcode tambah nomor baru daftarkan nomor pasang whatsapp mulai pertama kali"><summary>Bagaimana cara menghubungkan nomor WhatsApp?</summary><div class="answer"><ol><li>Buka menu <strong>Nomor WhatsApp</strong>, isi nama, lalu klik <strong>Tambah nomor</strong>.</li><li>Di HP, buka WhatsApp lalu masuk ke <strong>Perangkat tertaut</strong> (ada di menu titik tiga atau Setelan).</li><li>Kalau sudah ada perangkat lain di daftar itu, keluarkan dulu.</li><li>Ketuk <strong>Tautkan perangkat</strong> dan arahkan kamera ke kode QR di layar.</li><li>Tunggu sampai statusnya berubah menjadi <strong>Terhubung</strong>.</li></ol></div></details>
+            <details id="faq-linked" data-k="whatsapp web perangkat tertaut linked device laptop komputer dua tempat dipakai bersamaan keluarkan perangkat"><summary>Bolehkah nomornya tetap tertaut ke WhatsApp Web atau perangkat lain?</summary><div class="answer"><p>Jangan. Nomor yang dipakai di sini hanya boleh tertaut ke aplikasi ini, supaya nomor itu tidak dipakai mengirim dari tempat lain di waktu yang sama.</p><p>Cara memastikannya:</p><ol><li>Di HP, buka WhatsApp lalu masuk ke <strong>Perangkat tertaut</strong>.</li><li>Lihat daftar perangkatnya. Setelah berhasil dihubungkan, aplikasi ini muncul di sana, biasanya dengan nama browser seperti Chrome atau Windows.</li><li>Kalau ada perangkat lain, ketuk perangkat itu lalu pilih <strong>Keluar</strong>.</li></ol><p>WhatsApp di HP itu sendiri tetap bisa dipakai seperti biasa. Aplikasi ini belum bisa memeriksa daftar tersebut secara otomatis, jadi perlu dicek sendiri di HP.</p></div></details>
+            <details data-k="kode pairing tidak bisa scan kamera rusak qr tidak muncul qr tidak terbaca kode angka pakai nomor telepon"><summary>Kamera HP saya tidak bisa scan kode QR. Ada cara lain?</summary><div class="answer"><p>Ada. Di kartu nomor tersebut klik <strong>Pakai kode</strong>, isi nomor HP-nya, lalu klik <strong>Minta kode</strong>. Di HP, pada layar Tautkan perangkat pilih <strong>Tautkan dengan nomor telepon</strong> dan masukkan kode yang muncul.</p></div></details>
+            <details data-k="terputus putus logout keluar sendiri disconnect tidak terhubung mati offline sambungkan ulang reconnect nyambung lagi hilang koneksi"><summary>Status nomor saya "Terputus" atau "Menunggu scan QR". Harus bagaimana?</summary><div class="answer"><p>Kalau koneksi putus sebentar, sistem mencoba menyambung lagi sendiri sampai 8 kali. Kalau tetap gagal, statusnya menjadi Terputus dan muncul tombol <strong>Sambungkan ulang</strong> di kartu nomor itu. Kalau statusnya <strong>Menunggu scan QR</strong>, berarti nomor perlu dihubungkan ulang: scan kode QR yang muncul di menu Nomor WhatsApp.</p><p>Nomor juga bisa terputus kalau dikeluarkan dari daftar Perangkat tertaut di HP.</p></div></details>
+            <details data-k="banyak nomor maksimal batas limit berapa nomor tambah nomor kedua penuh"><summary>Bisakah menghubungkan lebih dari satu nomor?</summary><div class="answer"><p>Bisa, sampai <strong><span class="js-max">10</span> nomor</strong>. Tambahkan satu per satu di menu Nomor WhatsApp. Saat mengirim, kamu tinggal memilih mau kirim dari nomor yang mana.</p><p>Kalau sudah penuh, hapus dulu nomor yang tidak dipakai. Batas ini bisa dinaikkan oleh admin aplikasi.</p></div></details>
 
             <h2>File kontak dan isi pesan</h2>
-            <details><summary>File kontak seperti apa yang bisa dipakai?</summary><div class="answer"><ul><li>File Excel (.xlsx atau .xls) atau CSV, ukuran paling besar 10 MB.</li><li>Baris pertama berisi judul kolom, misalnya <span class="mono">nama</span> dan <span class="mono">phone</span>.</li><li>Harus ada satu kolom berisi nomor HP. Judul kolomnya boleh <span class="mono">phone</span>, <span class="mono">hp</span>, <span class="mono">wa</span>, <span class="mono">nomor</span>, <span class="mono">telepon</span>, dan sejenisnya.</li><li>Kalau filenya Excel dengan beberapa sheet, yang dibaca hanya sheet pertama.</li></ul><p><button type="button" class="btn-link" data-action="sample-file">Unduh contoh file</button></p></div></details>
-            <details><summary>Bagaimana format nomor HP yang benar?</summary><div class="answer"><p>Bebas, selama nomor Indonesia. <span class="mono">081234567890</span>, <span class="mono">81234567890</span>, dan <span class="mono">6281234567890</span> semuanya diterima. Spasi dan tanda strip tidak masalah. Nomor yang kurang dari 9 angka akan dilewati.</p></div></details>
-            <details><summary>Apa maksud tulisan {{nama}} di dalam pesan?</summary><div class="answer"><p>Itu penanda tempat yang akan diisi otomatis dari file kontak. Kalau file punya kolom <span class="mono">nama</span> dan pesannya "Halo {{nama}}", maka Budi menerima "Halo Budi" dan Siti menerima "Halo Siti".</p><p>Kamu bisa memakai kolom apa saja, misalnya <span class="mono">{{kota}}</span> kalau ada kolom <span class="mono">kota</span>. Huruf besar atau kecil tidak berpengaruh.</p></div></details>
-            <details><summary>Ada peringatan "tidak ada di file kontak". Apa artinya?</summary><div class="answer"><p>Artinya pesanmu memakai penanda seperti <span class="mono">{{nama}}</span>, tetapi file kontak tidak punya kolom dengan judul itu. Kalau tetap dikirim, penerima akan melihat tulisan <span class="mono">{{nama}}</span> apa adanya. Perbaiki judul kolom di file atau ubah isi pesannya.</p></div></details>
+            <details data-k="excel csv xlsx upload unggah file daftar kontak format file kolom contoh template import data nomor tujuan"><summary>File kontak seperti apa yang bisa dipakai?</summary><div class="answer"><ul><li>File Excel (.xlsx atau .xls) atau CSV, ukuran paling besar 10 MB.</li><li>Baris pertama berisi judul kolom, misalnya <span class="mono">nama</span> dan <span class="mono">phone</span>.</li><li>Harus ada satu kolom berisi nomor HP. Judul kolomnya boleh <span class="mono">phone</span>, <span class="mono">hp</span>, <span class="mono">wa</span>, <span class="mono">nomor</span>, <span class="mono">telepon</span>, dan sejenisnya.</li><li>Kalau filenya Excel dengan beberapa sheet, yang dibaca hanya sheet pertama.</li></ul><p><button type="button" class="btn-link" data-action="sample-file">Unduh contoh file</button></p></div></details>
+            <details data-k="nomor hp 08 62 format telepon penulisan nomor salah nomor tidak valid awalan"><summary>Bagaimana format nomor HP yang benar?</summary><div class="answer"><p>Bebas, selama nomor Indonesia. <span class="mono">081234567890</span>, <span class="mono">81234567890</span>, dan <span class="mono">6281234567890</span> semuanya diterima. Spasi dan tanda strip tidak masalah. Nomor yang kurang dari 9 angka akan dilewati.</p></div></details>
+            <details data-k="kurung kurawal variabel nama otomatis personalisasi sapaan panggil nama ganti nama penanda isi otomatis"><summary>Apa maksud tulisan {{nama}} di dalam pesan?</summary><div class="answer"><p>Itu penanda tempat yang akan diisi otomatis dari file kontak. Kalau file punya kolom <span class="mono">nama</span> dan pesannya "Halo {{nama}}", maka Budi menerima "Halo Budi" dan Siti menerima "Halo Siti".</p><p>Kamu bisa memakai kolom apa saja, misalnya <span class="mono">{{kota}}</span> kalau ada kolom <span class="mono">kota</span>. Huruf besar atau kecil tidak berpengaruh.</p></div></details>
+            <details data-k="peringatan warning kolom tidak ditemukan penanda tidak cocok muncul apa adanya kuning perlu dicek"><summary>Ada peringatan "tidak ada di file kontak". Apa artinya?</summary><div class="answer"><p>Artinya pesanmu memakai penanda seperti <span class="mono">{{nama}}</span>, tetapi file kontak tidak punya kolom dengan judul itu. Kalau tetap dikirim, penerima akan melihat tulisan <span class="mono">{{nama}}</span> apa adanya. Perbaiki judul kolom di file atau ubah isi pesannya.</p></div></details>
 
             <h2>Saat mengirim</h2>
-            <details><summary>Kenapa pengirimannya lama?</summary><div class="answer"><p>Sengaja diberi jeda beberapa detik di antara tiap pesan (biasanya 3-7 detik) supaya nomor tidak dianggap spam dan diblokir WhatsApp. Untuk 100 kontak kira-kira butuh 8-10 menit.</p></div></details>
-            <details><summary>Bolehkah halaman ditutup saat pengiriman berjalan?</summary><div class="answer"><p>Boleh untuk menu <strong>Kirim Pesan</strong>. Pengiriman tetap berjalan, dan hasilnya bisa dilihat di menu Riwayat. Kalau halaman dibuka lagi, nomor yang masih mengirim ditandai "Sedang mengirim" di langkah pertama, dan kemajuannya bisa dibuka lewat tombol <strong>Lihat progres</strong>.</p><p>Untuk <strong>Kirim Cepat</strong>, pengiriman juga tetap berjalan, tetapi tampilan kemajuannya hilang kalau halaman ditutup. Hasilnya tetap tercatat di Riwayat.</p></div></details>
-            <details><summary>Bagaimana cara menghentikan pengiriman?</summary><div class="answer"><p>Klik tombol <strong>Hentikan pengiriman</strong> di langkah Kirim. Pengiriman berhenti setelah pesan yang sedang diproses. Pesan yang sudah terkirim tidak bisa ditarik kembali.</p><p>Kirim Cepat tidak punya tombol berhenti, jadi periksa jumlah kirimnya sebelum mulai.</p></div></details>
-            <details><summary>Berapa orang yang bisa memakai di waktu yang sama?</summary><div class="answer"><p>Halaman ini boleh dibuka banyak orang sekaligus. Yang dibatasi adalah pengirimannya:</p><ul><li>Satu nomor hanya bisa menjalankan <strong>satu</strong> pengiriman massal (menu Kirim Pesan) dalam satu waktu.</li><li>Jadi jumlah pengiriman massal yang bisa berjalan bersamaan sama dengan jumlah nomor yang terhubung, paling banyak <span class="js-max">10</span>.</li><li>Kalau sebuah nomor sedang dipakai, orang berikutnya perlu menunggu sampai selesai atau memakai nomor lain.</li></ul></div></details>
-            <details><summary>Kenapa ada pesan yang gagal atau dilewati?</summary><div class="answer"><ul><li><strong>Dilewati</strong>: nomornya kosong atau terlalu pendek, atau kolom nomor HP tidak ditemukan di file, jadi tidak dicoba kirim.</li><li><strong>Gagal</strong>: sudah dicoba tetapi tidak terkirim, misalnya nomor tidak terdaftar di WhatsApp atau koneksi sedang terputus.</li></ul><p>Kalau 10 pesan gagal berturut-turut, pengiriman berhenti sendiri supaya nomor tetap aman.</p></div></details>
+            <details data-k="lama lambat lelet lemot jeda delay tunggu kapan selesai cepat percepat berapa lama"><summary>Kenapa pengirimannya lama?</summary><div class="answer"><p>Sengaja diberi jeda beberapa detik di antara tiap pesan (biasanya 3-7 detik) supaya nomor tidak dianggap spam dan diblokir WhatsApp. Untuk 100 kontak kira-kira butuh 8-10 menit.</p></div></details>
+            <details data-k="tutup tab tutup browser matikan laptop keluar halaman tetap jalan refresh reload progres hilang lihat progres"><summary>Bolehkah halaman ditutup saat pengiriman berjalan?</summary><div class="answer"><p>Boleh untuk menu <strong>Kirim Pesan</strong>. Pengiriman tetap berjalan, dan hasilnya bisa dilihat di menu Riwayat. Kalau halaman dibuka lagi, nomor yang masih mengirim ditandai "Sedang mengirim" di langkah pertama, dan kemajuannya bisa dibuka lewat tombol <strong>Lihat progres</strong>.</p><p>Untuk <strong>Kirim Cepat</strong>, pengiriman juga tetap berjalan, tetapi tampilan kemajuannya hilang kalau halaman ditutup. Hasilnya tetap tercatat di Riwayat.</p></div></details>
+            <details data-k="stop berhenti batal cancel hentikan batalkan salah kirim tarik pesan terlanjur"><summary>Bagaimana cara menghentikan pengiriman?</summary><div class="answer"><p>Klik tombol <strong>Hentikan pengiriman</strong> di langkah Kirim. Pengiriman berhenti setelah pesan yang sedang diproses. Pesan yang sudah terkirim tidak bisa ditarik kembali.</p><p>Kirim Cepat tidak punya tombol berhenti, jadi periksa jumlah kirimnya sebelum mulai.</p></div></details>
+            <details data-k="bersamaan barengan banyak orang dua orang paralel rebutan nomor sedang dipakai sedang mengirim antri"><summary>Berapa orang yang bisa memakai di waktu yang sama?</summary><div class="answer"><p>Halaman ini boleh dibuka banyak orang sekaligus. Yang dibatasi adalah pengirimannya:</p><ul><li>Satu nomor hanya bisa menjalankan <strong>satu</strong> pengiriman massal (menu Kirim Pesan) dalam satu waktu.</li><li>Jadi jumlah pengiriman massal yang bisa berjalan bersamaan sama dengan jumlah nomor yang terhubung, paling banyak <span class="js-max">10</span>.</li><li>Kalau sebuah nomor sedang dipakai, orang berikutnya perlu menunggu sampai selesai atau memakai nomor lain.</li></ul></div></details>
+            <details data-k="gagal tidak terkirim tidak kekirim error pending dilewati skip tidak sampai tidak nyampe nomor tidak terdaftar berhenti sendiri"><summary>Kenapa ada pesan yang gagal atau dilewati?</summary><div class="answer"><ul><li><strong>Dilewati</strong>: nomornya kosong atau terlalu pendek, atau kolom nomor HP tidak ditemukan di file, jadi tidak dicoba kirim.</li><li><strong>Gagal</strong>: sudah dicoba tetapi tidak terkirim, misalnya nomor tidak terdaftar di WhatsApp atau koneksi sedang terputus.</li></ul><p>Kalau 10 pesan gagal berturut-turut, pengiriman berhenti sendiri supaya nomor tetap aman.</p></div></details>
 
             <h2>Melihat hasil</h2>
-            <details><summary>Apa arti Terkirim, Diterima, dan Dibaca?</summary><div class="answer"><ul><li><strong>Terkirim</strong>: pesan sudah keluar dari nomor pengirim (centang satu).</li><li><strong>Diterima</strong>: pesan sudah sampai di HP penerima (centang dua).</li><li><strong>Dibaca</strong>: penerima sudah membuka pesannya (centang biru). Tidak muncul kalau penerima mematikan laporan dibaca.</li></ul></div></details>
-            <details><summary>Bisakah membalas pelanggan dari sini?</summary><div class="answer"><p>Bisa. Buka menu Percakapan, pilih nomornya, klik percakapannya, lalu tulis balasan di kotak bawah dan klik <strong>Kirim</strong>. Balasan hanya bisa dikirim ke nomor yang sudah pernah dikirimi pesan dari aplikasi ini, dan nomornya harus sedang terhubung.</p></div></details>
-            <details><summary>Bagaimana cara mengambil data percakapan untuk diolah?</summary><div class="answer"><p>Di menu Percakapan, pilih nomornya lalu klik <strong>Unduh transkrip (Excel)</strong>. Filenya berisi semua percakapan nomor itu: nomor pelanggan, arah pesan, isi, status, dan waktunya. Ada juga pilihan JSON untuk tim data. Waktu di dalam file memakai zona UTC, yaitu 7 jam lebih awal dari WIB.</p></div></details>
-            <details><summary>Apa itu "Analisis minat pelanggan"?</summary><div class="answer"><p>Fitur yang memakai AI untuk membaca satu percakapan dan memberi penilaian: apakah pelanggan mau jual LM, beli LM, keduanya, tidak tertarik, atau belum jelas; seberapa kuat minatnya; ringkasan; dan saran tindak lanjut. AI membaca paling banyak 80 pesan terakhir dari percakapan itu. Hasilnya adalah perkiraan, jadi tetap baca percakapannya sebelum mengambil keputusan.</p><p>Tombolnya hanya muncul kalau fitur ini sudah diaktifkan admin. Saat dipakai, isi percakapan dikirim ke layanan AI (Claude dari Anthropic) untuk dianalisis.</p></div></details>
-            <details><summary>Apa bedanya Riwayat dan Percakapan?</summary><div class="answer"><p><strong>Riwayat</strong> mencatat tiap pengiriman: kapan, dari nomor mana, isi pesannya, dan dikirim ke siapa saja.</p><p><strong>Percakapan</strong> menampilkan obrolan per nomor tujuan secara langsung: pesan yang dikirim, balasannya, dan obrolan sesudahnya selama nomor terhubung.</p></div></details>
-            <details><summary>Kalau nomor dihapus dari aplikasi, apakah percakapannya ikut hilang?</summary><div class="answer"><p>Tidak. Percakapan dan riwayat pengirimannya tetap tersimpan. Di menu Percakapan, nomor itu masih bisa dipilih dengan keterangan "sudah dihapus".</p><p>Kalau nomor yang sama dihubungkan lagi, percakapan barunya tercatat terpisah dari yang lama.</p></div></details>
-            <details><summary>Apakah semua chat WhatsApp di nomor saya ikut terlihat di sini?</summary><div class="answer"><p>Tidak semuanya. Yang direkam hanya obrolan dengan nomor yang pernah dikirimi pesan dari aplikasi ini. Untuk nomor itu, obrolannya terekam terus mulai dari pesan pertama yang dikirim: balasan mereka, topik lain sesudahnya, dan pesan yang kamu ketik langsung dari HP.</p><p>Grup dan chat dengan nomor yang tidak pernah dikirimi pesan dari sini tidak direkam dan tidak ditampilkan.</p><p>Catatan: WhatsApp kadang menyembunyikan nomor pengirim. Pesan seperti itu disimpan sementara tanpa ditampilkan sampai bisa dicocokkan dengan nomor tujuan. Yang tidak cocok dihapus, paling lama setelah 3 hari.</p><p>Foto, video, dan dokumen tidak disimpan. Yang tampil hanya tulisan [media] atau teks keterangannya.</p></div></details>
-            <details class="js-auth-on" hidden><summary>Bagaimana cara masuk, dan bagaimana kalau lupa password?</summary><div class="answer"><p>Pemilik email <span class="js-auth-domain">@pintarnya.com</span> masuk dengan tombol Google di halaman masuk, tanpa password tambahan. Pengguna dengan email lain memakai email dan password yang dibuatkan admin.</p><p>Kalau lupa password, minta admin WA Blast mengatur ulang. Kamu akan menerima password sementara yang wajib diganti saat masuk.</p></div></details>
-            <details><summary>Siapa saja yang bisa melihat data di sini?</summary><div class="answer"><p class="js-auth-on" hidden>Hanya orang yang sudah masuk dengan akunnya. Semua pengguna yang masuk bisa melihat semua nomor, percakapan, dan riwayat, dan juga bisa mengirim pesan, membalas, menghapus nomor, serta mengunduh transkrip. Mengelola akun pengguna hanya bisa dilakukan admin. Di Riwayat tercatat siapa yang memulai tiap pengiriman.</p><p class="js-auth-off">Aplikasi ini belum memakai login. Siapa pun yang punya alamat halaman ini bisa melihat semua nomor, percakapan, dan riwayat, dan juga bisa mengirim pesan, membalas, menghapus nomor, serta mengunduh transkrip. Jangan bagikan alamatnya ke orang di luar tim.</p></div></details>
-            <p class="empty" id="faqEmpty" hidden>Tidak ada pertanyaan yang cocok dengan kata kunci itu.</p>
+            <details data-k="centang satu dua biru status terkirim diterima dibaca read delivered sudah sampai belum dibaca"><summary>Apa arti Terkirim, Diterima, dan Dibaca?</summary><div class="answer"><ul><li><strong>Terkirim</strong>: pesan sudah keluar dari nomor pengirim (centang satu).</li><li><strong>Diterima</strong>: pesan sudah sampai di HP penerima (centang dua).</li><li><strong>Dibaca</strong>: penerima sudah membuka pesannya (centang biru). Tidak muncul kalau penerima mematikan laporan dibaca.</li></ul></div></details>
+            <details data-k="balas reply jawab chat pelanggan kirim balasan respon ngobrol"><summary>Bisakah membalas pelanggan dari sini?</summary><div class="answer"><p>Bisa. Buka menu Percakapan, pilih nomornya, klik percakapannya, lalu tulis balasan di kotak bawah dan klik <strong>Kirim</strong>. Balasan hanya bisa dikirim ke nomor yang sudah pernah dikirimi pesan dari aplikasi ini, dan nomornya harus sedang terhubung.</p></div></details>
+            <details data-k="download unduh export transkrip data chat excel csv json rekap laporan olah simpan percakapan"><summary>Bagaimana cara mengambil data percakapan untuk diolah?</summary><div class="answer"><p>Di menu Percakapan, pilih nomornya lalu klik <strong>Unduh transkrip (Excel)</strong>. Filenya berisi semua percakapan nomor itu: nomor pelanggan, arah pesan, isi, status, dan waktunya. Ada juga pilihan JSON untuk tim data. Waktu di dalam file memakai zona UTC, yaitu 7 jam lebih awal dari WIB.</p></div></details>
+            <details data-k="ai analisis analisa minat intent jual beli lm emas tertarik penilaian otomatis prospek"><summary>Apa itu "Analisis minat pelanggan"?</summary><div class="answer"><p>Fitur yang memakai AI untuk membaca satu percakapan dan memberi penilaian: apakah pelanggan mau jual LM, beli LM, keduanya, tidak tertarik, atau belum jelas; seberapa kuat minatnya; ringkasan; dan saran tindak lanjut. AI membaca paling banyak 80 pesan terakhir dari percakapan itu. Hasilnya adalah perkiraan, jadi tetap baca percakapannya sebelum mengambil keputusan.</p><p>Tombolnya hanya muncul kalau fitur ini sudah diaktifkan admin. Saat dipakai, isi percakapan dikirim ke layanan AI (Claude dari Anthropic) untuk dianalisis.</p></div></details>
+            <details data-k="riwayat history percakapan beda menu log pengiriman lihat hasil"><summary>Apa bedanya Riwayat dan Percakapan?</summary><div class="answer"><p><strong>Riwayat</strong> mencatat tiap pengiriman: kapan, dari nomor mana, isi pesannya, dan dikirim ke siapa saja.</p><p><strong>Percakapan</strong> menampilkan obrolan per nomor tujuan secara langsung: pesan yang dikirim, balasannya, dan obrolan sesudahnya selama nomor terhubung.</p></div></details>
+            <details data-k="hapus nomor chat hilang data hilang arsip sudah dihapus terhapus"><summary>Kalau nomor dihapus dari aplikasi, apakah percakapannya ikut hilang?</summary><div class="answer"><p>Tidak. Percakapan dan riwayat pengirimannya tetap tersimpan. Di menu Percakapan, nomor itu masih bisa dipilih dengan keterangan "sudah dihapus".</p><p>Kalau nomor yang sama dihubungkan lagi, percakapan barunya tercatat terpisah dari yang lama.</p></div></details>
+            <details data-k="privasi chat pribadi grup group direkam rekam semua chat kelihatan keamanan foto video media"><summary>Apakah semua chat WhatsApp di nomor saya ikut terlihat di sini?</summary><div class="answer"><p>Tidak semuanya. Yang direkam hanya obrolan dengan nomor yang pernah dikirimi pesan dari aplikasi ini. Untuk nomor itu, obrolannya terekam terus mulai dari pesan pertama yang dikirim: balasan mereka, topik lain sesudahnya, dan pesan yang kamu ketik langsung dari HP.</p><p>Grup dan chat dengan nomor yang tidak pernah dikirimi pesan dari sini tidak direkam dan tidak ditampilkan.</p><p>Catatan: WhatsApp kadang menyembunyikan nomor pengirim. Pesan seperti itu disimpan sementara tanpa ditampilkan sampai bisa dicocokkan dengan nomor tujuan. Yang tidak cocok dihapus, paling lama setelah 3 hari.</p><p>Foto, video, dan dokumen tidak disimpan. Yang tampil hanya tulisan [media] atau teks keterangannya.</p></div></details>
+            <details class="js-auth-on" hidden data-k="login masuk lupa password sandi reset google akun email tidak bisa masuk password sementara ganti password"><summary>Bagaimana cara masuk, dan bagaimana kalau lupa password?</summary><div class="answer"><p>Pemilik email <span class="js-auth-domain">@pintarnya.com</span> masuk dengan tombol Google di halaman masuk, tanpa password tambahan. Pengguna dengan email lain memakai email dan password yang dibuatkan admin.</p><p>Kalau lupa password, minta admin WA Blast mengatur ulang. Kamu akan menerima password sementara yang wajib diganti saat masuk.</p></div></details>
+            <details data-k="siapa lihat akses orang lain keamanan privasi admin anggota hak akses"><summary>Siapa saja yang bisa melihat data di sini?</summary><div class="answer"><p class="js-auth-on" hidden>Hanya orang yang sudah masuk dengan akunnya. Semua pengguna yang masuk bisa melihat semua nomor, percakapan, dan riwayat, dan juga bisa mengirim pesan, membalas, menghapus nomor, serta mengunduh transkrip. Mengelola akun pengguna hanya bisa dilakukan admin. Di Riwayat tercatat siapa yang memulai tiap pengiriman.</p><p class="js-auth-off">Aplikasi ini belum memakai login. Siapa pun yang punya alamat halaman ini bisa melihat semua nomor, percakapan, dan riwayat, dan juga bisa mengirim pesan, membalas, menghapus nomor, serta mengunduh transkrip. Jangan bagikan alamatnya ke orang di luar tim.</p></div></details>
+            <p class="empty" id="faqEmpty" hidden>Belum ketemu jawaban yang pas. Coba tulis dengan kata lain, pilih salah satu topik di atas, atau tanyakan ke admin WA Blast.</p>
           </div>
         </section>
 
@@ -2106,20 +2124,154 @@
     }
 
     // ─── Bantuan ───
+    // Forgiving search: everyday wording, abbreviations and small typos should still find the answer.
+    const FAQ_WORDS = {
+      ga: "tidak", gak: "tidak", gk: "tidak", ngga: "tidak", nggak: "tidak", enggak: "tidak", engga: "tidak", tdk: "tidak", kagak: "tidak", gabisa: "tidak", gbs: "tidak",
+      caranya: "cara", carany: "cara",
+      gimana: "bagaimana", gmn: "bagaimana", gmna: "bagaimana", bgmn: "bagaimana", knp: "kenapa", kok: "kenapa", mengapa: "kenapa", napa: "kenapa",
+      wa: "whatsapp", whatsap: "whatsapp", wasap: "whatsapp", watsap: "whatsapp", nomer: "nomor", no: "nomor", nmr: "nomor", nmor: "nomor",
+      sandi: "password", pass: "password", pw: "password", pswd: "password", pasword: "password", pasword: "password",
+      handphone: "hp", ponsel: "hp", telepon: "hp", telp: "hp", telpon: "hp", barcode: "qr", barkod: "qr", liat: "lihat", ngeliat: "lihat", melihat: "lihat",
+      download: "unduh", donlot: "unduh", ambil: "unduh", export: "unduh", ekspor: "unduh", eksport: "unduh", simpan: "unduh",
+      stop: "henti", berhenti: "henti", hentikan: "henti", menghentikan: "henti", batal: "henti", batalin: "henti", batalkan: "henti", cancel: "henti",
+      chat: "percakapan", chatnya: "percakapan", obrolan: "percakapan", customer: "pelanggan", cust: "pelanggan", konsumen: "pelanggan", nasabah: "pelanggan",
+      login: "masuk", signin: "masuk", logout: "keluar", delete: "hapus", apus: "hapus", ngapus: "hapus", ilang: "hilang",
+      lelet: "lama", lambat: "lama", lemot: "lama", lamban: "lama", error: "gagal", eror: "gagal", failed: "gagal", pending: "gagal", gagalnya: "gagal",
+      excel: "file", csv: "file", xlsx: "file", berkas: "file", putus: "terputus", disconnect: "terputus", dc: "terputus", offline: "terputus",
+      nyambung: "hubung", konek: "hubung", connect: "hubung", sambung: "hubung", link: "hubung", tautkan: "hubung", hubungkan: "hubung", menghubungkan: "hubung", terhubung: "hubung",
+      reply: "balas", bales: "balas", balesan: "balas", membalas: "balas", jawab: "balas", ceklis: "centang", ceklist: "centang", read: "dibaca",
+      ai: "analisis", analisa: "analisis", transkip: "transkrip", history: "riwayat", grup: "grup", group: "grup", upload: "unggah", aplod: "unggah",
+      kekirim: "terkirim", ngirim: "kirim", ngirimnya: "kirim", mengirim: "kirim", dikirim: "kirim", kirimnya: "kirim", pengiriman: "kirim", pengirimannya: "kirim",
+    };
+    const FAQ_STOP = new Set("yang di ke dari dan atau itu ini saya aku gue gw kita kami kamu bisa mau apa apakah bagaimana kenapa tolong dong ya sih nih untuk dengan ada kalau kalo jadi lagi udah sudah belum banget sekali aja saja harus perlu pas waktu saat buat sama pada juga tapi tetapi kah lah nya ny deh kan tuh lho loh nah kak min gan bro pak bu mas mbak bang".split(" "));
+
+    // withOriginals keeps the original spelling next to the everyday form, so a typo of a long word still matches it
+    function faqTokens(text, keepStop = false, withOriginals = false) {
+      const out = [];
+      for (let w of String(text || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/)) {
+        if (!w) continue;
+        if (withOriginals && w.length >= 6 && FAQ_WORDS[w] && !FAQ_STOP.has(w)) out.push(w);
+        w = FAQ_WORDS[w] || w;
+        if (w.length > 5) w = w.replace(/(nya|kah|lah)$/, "");
+        w = FAQ_WORDS[w] || w;
+        if (!keepStop && FAQ_STOP.has(w)) continue;
+        out.push(w);
+      }
+      return out;
+    }
+
+    function editDistanceWithin(x, y, max) {
+      if (Math.abs(x.length - y.length) > max) return false;
+      let prev = Array.from({ length: y.length + 1 }, (_, i) => i);
+      for (let i = 1; i <= x.length; i++) {
+        const cur = [i];
+        let best = i;
+        for (let j = 1; j <= y.length; j++) {
+          cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (x[i - 1] === y[j - 1] ? 0 : 1));
+          if (i > 1 && j > 1 && x[i - 1] === y[j - 2] && x[i - 2] === y[j - 1]) cur[j] = Math.min(cur[j], prev[j - 1]);
+          best = Math.min(best, cur[j]);
+        }
+        if (best > max) return false;
+        prev = cur;
+      }
+      return prev[y.length] <= max;
+    }
+
+    function sharedStem(x, y) {
+      // longest run of letters the two words have in common, e.g. "terkirim" and "mengirim" share "irim"
+      let best = 0;
+      for (let i = 0; i < x.length; i++) {
+        for (let j = 0; j < y.length; j++) {
+          let k = 0;
+          while (i + k < x.length && j + k < y.length && x[i + k] === y[j + k]) k++;
+          if (k > best) best = k;
+        }
+      }
+      return best;
+    }
+
+    // How well one typed word matches one word of a question: 1 exact, lower for looser matches, 0 for none.
+    function wordMatch(q, w) {
+      if (q === w) return 1;
+      if (q.length >= 3 && w.length >= 3 && (w.startsWith(q) || q.startsWith(w))) return 0.85;
+      if (q.length >= 4 && w.length >= 4) {
+        if (w.includes(q) || q.includes(w)) return 0.75;
+        if (editDistanceWithin(q, w, q.length >= 7 ? 2 : 1)) return 0.7;
+        const shared = sharedStem(q, w);
+        if (shared >= 5 || (shared >= 4 && shared >= 0.7 * Math.min(q.length, w.length))) return 0.55;
+      }
+      return 0;
+    }
+
+    const bestMatch = (q, words) => { let m = 0; for (const w of words) { const v = wordMatch(q, w); if (v > m) { m = v; if (m === 1) break; } } return m; };
+
+    function faqSearch(query, entries) {
+      const typed = faqTokens(query, true);
+      const tokens = faqTokens(query);
+      // "tidak terkirim", "ga bisa masuk": a negation usually means something failed
+      if (typed.includes("tidak") && !tokens.includes("gagal")) tokens.push("gagal*");
+      if (!tokens.length) return { ranked: [], strong: [] };
+      const ranked = entries.map((e, index) => {
+        let sum = 0, hit = 0;
+        for (const raw of tokens) {
+          const soft = raw.endsWith("*");
+          const t = soft ? raw.slice(0, -1) : raw;
+          // the question itself counts a little more than the keywords; an implied word must not match loose body text
+          const v = Math.max(3.2 * bestMatch(t, e.title), 3 * bestMatch(t, e.keys), soft ? 0 : 1.2 * bestMatch(t, e.body));
+          sum += soft ? v * 0.5 : v;
+          if (v > 0 && !soft) hit++;
+        }
+        const real = tokens.filter((t) => !t.endsWith("*")).length || 1;
+        // a "why can't I ..." answer ranks slightly lower for a plain "how do I ..." question
+        const troubleshooting = e.title.includes("tidak") && !typed.includes("tidak") ? 0.9 : 1;
+        return { index, score: sum * (0.4 + 0.6 * (hit / real)) * troubleshooting };
+      }).filter((r) => r.score > 0).sort((x, y) => y.score - x.score);
+      const top = ranked[0]?.score || 0;
+      const strong = top >= 1.6 ? ranked.filter((r) => r.score >= Math.max(1.6, top * 0.5)).slice(0, 5) : [];
+      return { ranked, strong };
+    }
+
+    let faqIndex = null;
+    function faqEntries() {
+      if (!faqIndex) {
+        faqIndex = [...document.querySelectorAll("#faq details")].map((el) => ({
+          el,
+          title: faqTokens(el.querySelector("summary").textContent, false, true),
+          keys: faqTokens(el.dataset.k || "", false, true),
+          body: [...new Set(faqTokens(el.querySelector(".answer").textContent, false, true))],
+        }));
+      }
+      // an answer that is switched off (for example the login help while login is off) is not offered
+      return faqIndex.filter((e) => !e.el.hidden);
+    }
+
     function filterFaq() {
-      const q = $("faqSearch").value.trim().toLowerCase();
-      let shown = 0;
-      document.querySelectorAll("#faq details").forEach((d) => {
-        const match = !q || d.textContent.toLowerCase().includes(q);
-        d.hidden = !match;
-        if (match) shown++;
+      const query = $("faqSearch").value.trim();
+      const box = $("faq");
+      const all = [...document.querySelectorAll("#faq details")];
+      if (!query) {
+        box.classList.remove("searching");
+        all.forEach((el) => { el.classList.remove("faq-nomatch"); el.style.order = ""; el.open = false; });
+        $("faqEmpty").hidden = true;
+        $("faqStatus").textContent = "";
+        return;
+      }
+      const entries = faqEntries();
+      const { ranked, strong } = faqSearch(query, entries);
+      // Nothing clearly matches: still offer the nearest few rather than a dead end.
+      const shown = strong.length ? strong : ranked.filter((r) => r.score >= 0.8).slice(0, 3);
+      box.classList.add("searching");
+      all.forEach((el) => { el.classList.add("faq-nomatch"); el.open = false; });
+      shown.forEach((r, rank) => {
+        const el = entries[r.index].el;
+        el.classList.remove("faq-nomatch");
+        el.style.order = String(rank + 1);
+        if (rank === 0 && strong.length) el.open = true;
       });
-      document.querySelectorAll("#faq h2").forEach((h) => {
-        let el = h.nextElementSibling, any = false;
-        while (el && el.tagName === "DETAILS") { if (!el.hidden) any = true; el = el.nextElementSibling; }
-        h.hidden = !any;
-      });
-      $("faqEmpty").hidden = shown > 0;
+      $("faqEmpty").hidden = shown.length > 0;
+      $("faqStatus").textContent = !shown.length ? ""
+        : strong.length ? (shown.length === 1 ? "Ini jawaban yang paling cocok." : `Ini ${shown.length} jawaban yang paling cocok. Yang teratas sudah dibuka.`)
+        : "Tidak ada yang persis cocok. Mungkin salah satu dari ini yang kamu cari:";
     }
 
     // ─── Events ───
@@ -2144,7 +2296,8 @@
         case "account-password": changeOwnPassword(); break;
         case "copy-temp": navigator.clipboard?.writeText($("tempPassword").textContent).then(() => toast("Password disalin.", "success"), () => toast("Tidak bisa menyalin otomatis. Blok lalu salin manual.", "error")); break;
         case "user-reset": case "user-role": case "user-active": userAction(card, el); break;
-        case "faq-open": { showPage("bantuan"); $("faqSearch").value = ""; filterFaq(); const d = $(el.dataset.faq); if (d) { d.open = true; d.scrollIntoView({ block: "center" }); d.querySelector("summary").focus({ preventScroll: true }); } break; }
+        case "faq-topic": $("faqSearch").value = el.dataset.q; filterFaq(); $("faqStatus").scrollIntoView({ block: "nearest" }); break;
+        case "faq-open": { showPage("bantuan"); $("faqSearch").value = ""; filterFaq(); const d = $(el.dataset.faq); if (d) { d.classList.remove("faq-nomatch"); d.open = true; d.scrollIntoView({ block: "center" }); d.querySelector("summary").focus({ preventScroll: true }); } break; }
         case "blast-stop": stopBlast(); break;
         case "blast-detach": detachBlast(); break;
         case "blast-watch": attachBlast(el.dataset.sid, busySenders.get(el.dataset.sid)?.total || 0); break;
@@ -2180,7 +2333,8 @@
     $("delayMax").addEventListener("input", renderReview);
     $("addSessionForm").addEventListener("submit", addSession);
     $("quickForm").addEventListener("submit", quickSend);
-    $("faqSearch").addEventListener("input", filterFaq);
+    let faqTimer = null;
+    $("faqSearch").addEventListener("input", () => { clearTimeout(faqTimer); faqTimer = setTimeout(filterFaq, 150); });
     const dz = $("dropzone");
     dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("drag"); });
     dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
