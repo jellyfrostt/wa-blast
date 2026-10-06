@@ -19,6 +19,7 @@ const suites = [
   ["test-features.mjs", {}],
   ["test-features.mjs", { ANTHROPIC_API_KEY: "test-key-not-real" }],
   ["test-hardening.mjs", {}],
+  ["test-faq-search.mjs", {}],
   ["test-auth.mjs", { AUTH_ENABLED: "true", ADMIN_EMAIL: "admin@contoh.com", ADMIN_PASSWORD: "bootstrap-pass-1", ADMIN_EMAILS: "boss@pintarnya.com", GOOGLE_CLIENT_ID: "test-client-id", GOOGLE_CLIENT_SECRET: "test-client-secret" }],
 ];
 
