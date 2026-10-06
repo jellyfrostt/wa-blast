@@ -707,7 +707,8 @@
       let d = null;
       try { d = await r.json(); } catch {}
       // The session ended (or a temporary password still has to be replaced): back to the login page.
-      if (authOn && (r.status === 401 || d?.mustChangePassword)) { location.replace("/login"); throw new Error("Sesi berakhir. Silakan masuk lagi."); }
+      // Only the login gate answers 401 here, so this also covers a page opened before login was switched on.
+      if (r.status === 401 || d?.mustChangePassword) { location.replace("/login"); throw new Error("Sesi berakhir. Silakan masuk lagi."); }
       if (!r.ok) throw new Error(d?.error || `Permintaan gagal (${r.status})`);
       return d;
     }
@@ -1996,7 +1997,8 @@
 
     async function loadMe() {
       let d;
-      try { d = await (await fetch("/api/auth/me")).json(); } catch { return; }
+      // A restart can make this one call fail; without the answer the page would not know who is signed in.
+      try { d = await (await fetch("/api/auth/me")).json(); } catch { setTimeout(loadMe, 5000); return; }
       authOn = !!d.authEnabled;
       me = d.user;
       if (!authOn) return;
