@@ -35,7 +35,7 @@ Ini bukan pekerjaan teknis, dan sebagian menentukan pekerjaan teknis berikutnya.
 - Aktifkan login: siapkan OAuth Google, akun admin pertama, lalu `AUTH_ENABLED=true`.
 - Uji dengan nomor asli hal-hal yang belum terbukti: blast, balasan bernomor tersembunyi, pesan yang diketik dari HP.
 - Aktifkan backup ke luar server.
-- Ukur pemakaian memori per nomor asli untuk menentukan batas nomor yang realistis.
+- Ukur pemakaian memori per nomor asli untuk menentukan batas nomor yang realistis. Rencana untuk sampai 700 nomor bersamaan ada di [RENCANA-700-NOMOR.md](RENCANA-700-NOMOR.md).
 
 ### Tahap 1: data transkrip siap diolah
 
