@@ -116,6 +116,17 @@ Yang perlu disiapkan untuk mengaktifkan:
 2. Untuk tombol Google: buat OAuth client di Google Cloud dengan redirect URI `https://whatsapp-service-production-0bbd.up.railway.app/auth/google/callback`, lalu isi `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, dan `PUBLIC_URL`.
 3. Isi `AUTH_ENABLED=true`, lalu deploy.
 
+Pindah domain kantor (dari `@pintarnya.com` ke `@pandai-group.com`):
+
+1. Selama masa peralihan isi `GOOGLE_ALLOWED_DOMAIN=pandai-group.com,pintarnya.com`, supaya alamat lama dan baru sama-sama bisa masuk.
+2. Akun yang pernah masuk lewat Google ikut pindah sendiri. Google memberi tiap orang id akun yang tetap walau alamat emailnya berganti, jadi saat orang itu pertama masuk dengan alamat baru, akunnya diganti ke alamat baru dengan peran yang sama. Ini hanya berlaku kalau alamat baru ada di akun Google yang sama (domain baru ditambahkan ke Workspace yang sama). Kalau semua orang dibuatkan akun Google baru di organisasi lain, mereka masuk sebagai akun baru berperan Anggota, dan admin perlu mengatur ulang perannya.
+3. Akun yang dibuat admin (email dan password) tidak ikut pindah. Kalau alamatnya berubah, buatkan akun baru dan nonaktifkan yang lama.
+4. Ganti `ADMIN_EMAILS` dan `ADMIN_EMAIL` ke alamat baru.
+5. Pastikan OAuth client di Google Cloud masih bisa dipakai orang dari organisasi baru. Kalau layar persetujuannya bertipe Internal, hanya orang dari organisasi pemilik project yang bisa masuk.
+6. Setelah semua orang pindah, hapus `pintarnya.com` dari `GOOGLE_ALLOWED_DOMAIN`.
+
+Riwayat pengiriman tetap mencatat alamat yang dipakai saat itu.
+
 Tanpa langkah 2, tombol Google tidak muncul dan hanya email dan password yang bisa dipakai.
 
 ## 6. Data
