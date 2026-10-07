@@ -78,6 +78,8 @@ const q = {
   setRole: db.prepare("UPDATE users SET role = ? WHERE id = ?"),
   setActive: db.prepare("UPDATE users SET is_active = ? WHERE id = ?"),
   setGoogle: db.prepare("UPDATE users SET google_sub = ? WHERE id = ?"),
+  userBySub: db.prepare("SELECT * FROM users WHERE google_sub = ? ORDER BY id LIMIT 1"),
+  setEmail: db.prepare("UPDATE users SET email = ? WHERE id = ?"),
   touchLogin: db.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?"),
   insertSession: db.prepare("INSERT INTO auth_sessions (token_hash, user_id, expires_at, via) VALUES (?, ?, datetime('now', ?), ?)"),
   deleteExpiredSessions: db.prepare("DELETE FROM auth_sessions WHERE expires_at < datetime('now')"),
@@ -362,6 +364,15 @@ export function mountAuth(app, logger) {
     try {
       const id = await googleIdentity(req, String(req.query.code));
       let user = q.userByEmail.get(id.email);
+      // When the company moves to a new email domain, Google keeps the same account id for each person,
+      // so an account known by that id follows its owner to the new address with its role intact.
+      const moved = !user && id.sub ? q.userBySub.get(id.sub) : null;
+      if (moved) {
+        if (!moved.is_active) return fail("inactive");
+        q.setEmail.run(id.email, moved.id);
+        logger.info({ from: moved.email, to: id.email }, "Account moved to a new email address");
+        user = q.userById.get(moved.id);
+      }
       const shouldBeAdmin = adminEmails().has(id.email);
       if (!user) {
         q.insertUser.run(id.email, id.name, shouldBeAdmin ? "admin" : "member", null, id.sub, 0, "google");
