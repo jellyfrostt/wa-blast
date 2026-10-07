@@ -231,6 +231,22 @@ try {
   assert.equal((await signIn(good())).back.location, "/login?error=inactive");
   console.log("ok  a deactivated account cannot come back through Google");
 
+  // ── the company moves to a new email domain: the same Google account keeps its account and role
+  process.env.GOOGLE_ALLOWED_DOMAIN = "pandai-group.com,pintarnya.com";
+  const moved = await signIn(good({ email: "boss@pandai-group.com", sub: "g-9", hd: "pandai-group.com", name: "Boss" }));
+  assert.equal(moved.back.location, "/");
+  assert.equal(moved.to.searchParams.get("hd"), null, "with two domains Google is not told to show only one");
+  const movedMe = (await moved.c("GET", "/api/auth/me")).json.user;
+  assert.deepEqual([movedMe.email, movedMe.role], ["boss@pandai-group.com", "admin"], "the admin role follows although ADMIN_EMAILS still lists the old address");
+  const movedList = (await moved.c("GET", "/api/users")).json.map((u) => u.email);
+  assert.ok(!movedList.includes("boss@pintarnya.com"), "no second account is left at the old address");
+  assert.equal((await signIn(good({ email: "bintang@pandai-group.com", hd: "pandai-group.com" }))).back.location, "/login?error=inactive", "a deactivated account stays out at its new address");
+  assert.ok((await moved.c("GET", "/api/users")).json.some((u) => u.email === "bintang@pintarnya.com"), "and is not renamed");
+  const newcomer = await signIn(good({ email: "baru@pandai-group.com", sub: "g-new", hd: "pandai-group.com", name: "Baru" }));
+  assert.equal((await newcomer.c("GET", "/api/auth/me")).json.user.role, "member");
+  delete process.env.GOOGLE_ALLOWED_DOMAIN;
+  console.log("ok  moving to a new email domain keeps each person's account and role");
+
   // ── too many wrong passwords
   const brute = client();
   let last = null;
