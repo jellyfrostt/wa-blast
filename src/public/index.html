@@ -576,6 +576,18 @@
             <h2>Daftar pengguna</h2>
             <div id="usersList" style="margin-top:8px"></div>
           </div>
+          <div class="card">
+            <h2>Kunci API untuk aplikasi lain</h2>
+            <p class="lead">Dipakai aplikasi lain (misalnya LMS) untuk mengirim WhatsApp lewat WA Blast tanpa login. Kunci hanya bisa mengirim pesan, melihat daftar nomor, status, dan riwayat. Kunci tidak bisa membaca percakapan pelanggan atau mengubah nomor dan pengguna. Buat satu kunci untuk setiap aplikasi, supaya bisa dicabut sendiri-sendiri.</p>
+            <form class="add-form" id="addKeyForm">
+              <div class="field">
+                <label for="newKeyName">Nama aplikasi</label>
+                <input type="text" id="newKeyName" maxlength="80" autocomplete="off" placeholder="Contoh: LMS">
+              </div>
+              <button type="submit" class="btn btn-primary" id="addKeyBtn">Buat kunci</button>
+            </form>
+            <div id="keysList" style="margin-top:8px"></div>
+          </div>
         </section>
 
         <!-- Bantuan -->
@@ -851,7 +863,7 @@
         else refreshChatList();
       }
       if (name === "riwayat") loadHistory();
-      if (name === "pengguna") loadUsers();
+      if (name === "pengguna") { loadUsers(); loadKeys(); }
       window.scrollTo(0, 0);
       if (focus) $(`page-${name}`).querySelector("h1")?.focus({ preventScroll: true });
     }
@@ -2099,6 +2111,58 @@
       btn.disabled = false;
     }
 
+    async function loadKeys() {
+      const el = $("keysList");
+      try {
+        const keys = await api("/api/api-keys");
+        el.innerHTML = keys.length ? keys.map((k) => `<div class="user-row" data-id="${esc(k.id)}">
+          <div class="who">
+            <div><strong>${esc(k.name)}</strong> ${k.revokedAt ? badge("Dicabut", "danger") : badge("Aktif", "info")}</div>
+            <div class="mail">${esc(k.prefix)}… · dibuat ${esc(formatTime(k.createdAt))}${k.createdBy ? " oleh " + esc(k.createdBy) : ""} · ${k.lastUsedAt ? "terakhir dipakai " + esc(formatTime(k.lastUsedAt)) : "belum pernah dipakai"}</div>
+          </div>
+          <div class="btn-row">${k.revokedAt ? "" : `<button type="button" class="btn btn-danger-outline btn-small" data-action="key-revoke">Cabut</button>`}</div>
+        </div>`).join("") : `<p class="hint">Belum ada kunci.</p>`;
+      } catch (err) {
+        el.innerHTML = `<div class="alert alert-warn" role="alert">${esc(err.message)}</div>`;
+      }
+    }
+
+    async function addKey(e) {
+      e.preventDefault();
+      const name = $("newKeyName").value.trim();
+      if (!name) { toast("Isi dulu nama aplikasinya.", "error"); $("newKeyName").focus(); return; }
+      const btn = $("addKeyBtn");
+      btn.disabled = true;
+      try {
+        const d = await postJson("/api/api-keys", { name });
+        $("newKeyName").value = "";
+        await loadKeys();
+        openModal(`<h2 id="modalTitle">Kunci untuk ${esc(d.apiKey.name)}</h2>
+          <p>Salin kunci ini dan berikan ke pengelola aplikasinya. Kunci hanya tampil sekali. Simpan di pengaturan server aplikasi itu, jangan di kode halaman web atau di chat.</p>
+          <div class="secret" id="tempPassword" style="font-size:15px">${esc(d.key)}</div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-outline" data-action="copy-temp">Salin</button>
+            <button type="button" class="btn btn-primary" data-action="modal-cancel" data-autofocus>Sudah saya simpan</button>
+          </div>`);
+      } catch (err) {
+        toast(err.message, "error");
+      }
+      btn.disabled = false;
+    }
+
+    async function revokeKey(row) {
+      const name = row.querySelector("strong").textContent;
+      const ok = await confirmDialog({ title: `Cabut kunci ${name}?`, body: "Aplikasi yang memakai kunci ini langsung tidak bisa mengirim lagi. Ini tidak bisa dibatalkan; untuk menyambung lagi, buat kunci baru.", confirmText: "Ya, cabut", danger: true });
+      if (!ok) return;
+      try {
+        await api(`/api/api-keys/${encodeURIComponent(row.dataset.id)}`, { method: "DELETE" });
+        await loadKeys();
+        toast("Kunci dicabut.", "success");
+      } catch (err) {
+        toast(err.message, "error");
+      }
+    }
+
     async function userAction(row, el) {
       const id = row.dataset.id;
       const name = row.querySelector("strong").textContent;
@@ -2296,7 +2360,8 @@
         case "sample-file": downloadSample(); break;
         case "logout": logout(); break;
         case "account-password": changeOwnPassword(); break;
-        case "copy-temp": navigator.clipboard?.writeText($("tempPassword").textContent).then(() => toast("Password disalin.", "success"), () => toast("Tidak bisa menyalin otomatis. Blok lalu salin manual.", "error")); break;
+        case "key-revoke": revokeKey(card); break;
+        case "copy-temp": navigator.clipboard?.writeText($("tempPassword").textContent).then(() => toast("Disalin.", "success"), () => toast("Tidak bisa menyalin otomatis. Blok lalu salin manual.", "error")); break;
         case "user-reset": case "user-role": case "user-active": userAction(card, el); break;
         case "faq-topic": $("faqSearch").value = el.dataset.q; filterFaq(); $("faqStatus").scrollIntoView({ block: "nearest" }); break;
         case "faq-open": { showPage("bantuan"); $("faqSearch").value = ""; filterFaq(); const d = $(el.dataset.faq); if (d) { d.classList.remove("faq-nomatch"); d.open = true; d.scrollIntoView({ block: "center" }); d.querySelector("summary").focus({ preventScroll: true }); } break; }
@@ -2329,6 +2394,7 @@
     document.addEventListener("submit", (e) => { if (e.target.id === "chatCompose") sendReply(e); });
     document.addEventListener("keydown", (e) => { if (e.target.id === "chatReply" && e.key === "Enter" && (e.ctrlKey || e.metaKey)) $("chatCompose").requestSubmit(); });
     $("addUserForm").addEventListener("submit", addUser);
+    $("addKeyForm").addEventListener("submit", addKey);
     document.addEventListener("submit", (e) => { if (e.target.id === "ownPasswordForm") submitOwnPassword(e); });
     $("template").addEventListener("input", onTemplateInput);
     $("delayMin").addEventListener("input", renderReview);
