@@ -8,7 +8,7 @@ WA Blast adalah dashboard web untuk mengirim pesan WhatsApp ke banyak nomor dari
 
 - Dipakai oleh anggota tim yang tidak teknis, jadi semua teks di layar memakai bahasa Indonesia sederhana.
 - Terhubung ke WhatsApp lewat pustaka Baileys, yaitu cara tidak resmi yang meniru WhatsApp Web. Ini bukan WhatsApp Business API.
-- Berjalan di Railway sebagai satu server dengan database SQLite. Alamat produksi: `https://whatsapp-service-production-0bbd.up.railway.app`.
+- Berjalan di Railway sebagai satu server dengan database SQLite. Alamat produksi: `https://whatsapp-service-production-7a29.up.railway.app`.
 - Login sudah aktif di produksi (bagian 5): masuk dengan Google kantor atau akun buatan admin.
 
 ## 2. Fitur per menu
@@ -113,7 +113,7 @@ Aturan:
 Yang perlu disiapkan untuk mengaktifkan:
 
 1. Akun admin pertama: isi `ADMIN_EMAIL` dan `ADMIN_PASSWORD` (password ini wajib diganti saat pertama masuk), atau isi `ADMIN_EMAILS` dengan email Google kantor yang dijadikan admin. Selama admin itu belum membuat password sendiri, tiap server menyala password dari `ADMIN_PASSWORD` diberlakukan lagi; itulah jalan masuk kalau password sementaranya kedaluwarsa.
-2. Untuk tombol Google: buat OAuth client di Google Cloud dengan redirect URI `https://whatsapp-service-production-0bbd.up.railway.app/auth/google/callback`, lalu isi `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, dan `PUBLIC_URL`.
+2. Untuk tombol Google: buat OAuth client di Google Cloud dengan redirect URI `https://whatsapp-service-production-7a29.up.railway.app/auth/google/callback`, lalu isi `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, dan `PUBLIC_URL`.
 3. Isi `AUTH_ENABLED=true`, lalu deploy.
 
 Pindah domain kantor (dari `@pintarnya.com` ke `@pandai-group.com`):
