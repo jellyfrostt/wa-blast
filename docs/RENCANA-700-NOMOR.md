@@ -129,7 +129,7 @@ Selama fase ini aplikasi masih satu proses, hanya databasenya pindah. Risikonya 
 
 1. Dashboard untuk ratusan nomor: ringkasan per status (tersambung, perlu scan, bermasalah, dibatasi), filter, pencarian, dan halaman Nomor yang tidak memuat 700 kartu dan 700 QR sekaligus. `/api/sessions` diganti versi berhalaman plus endpoint ringkasan.
 2. Kesehatan shard di dashboard (dari tabel `workers`), dan peringatan ke Slack kalau shard tidak berdetak lebih dari 2 menit atau jumlah nomor tersambung turun tajam.
-3. Batas pengiriman harian per nomor dan jeda yang sudah ada tetap berlaku per nomor, ditambah batas total per menit supaya Neon dan WhatsApp tidak dibanjiri.
+3. Jeda yang sudah ada tetap berlaku per nomor, ditambah batas pengiriman harian per nomor (belum ada di kode) dan batas total per menit supaya Neon dan WhatsApp tidak dibanjiri.
 4. Peluncuran bertahap: 50 nomor, lalu 200, lalu 700. Tiap tahap berjalan minimal satu minggu, dan tahap berikutnya baru dimulai kalau angka blokir dan kesehatan shard aman.
 
 Onboarding 700 nomor butuh waktu orang, bukan hanya waktu server. Tiap nomor perlu HP dan SIM aktif dan scan QR satu kali, dan harus discan ulang kalau tautannya putus atau HP-nya lama mati.
