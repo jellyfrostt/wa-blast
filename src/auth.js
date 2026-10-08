@@ -9,6 +9,7 @@ import db from "./db.js";
 //   - Google sign-in, restricted to one Workspace domain (accounts are created on first sign-in)
 //   - email + password accounts created by an admin, with a one-time password the user must replace
 // Sessions are random tokens in an httpOnly cookie; only their SHA-256 is stored.
+// Other systems use API keys that an admin creates; a key reaches only the sending and status APIs.
 
 const scryptAsync = promisify(scrypt);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -55,6 +56,17 @@ db.exec(`
     expires_at TEXT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS api_keys (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    key_hash TEXT NOT NULL UNIQUE,
+    prefix TEXT NOT NULL,
+    created_by TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_used_at TEXT,
+    revoked_at TEXT
+  );
 `);
 const hasColumn = (table, column) => db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === column);
 // How the session was opened: only a password session can be told to replace a temporary password.
@@ -90,7 +102,53 @@ const q = {
   deleteSession: db.prepare("DELETE FROM auth_sessions WHERE token_hash = ?"),
   deleteUserSessions: db.prepare("DELETE FROM auth_sessions WHERE user_id = ?"),
   deleteOtherSessions: db.prepare("DELETE FROM auth_sessions WHERE user_id = ? AND token_hash != ?"),
+  listApiKeys: db.prepare("SELECT * FROM api_keys ORDER BY revoked_at IS NOT NULL, id DESC"),
+  apiKeyById: db.prepare("SELECT * FROM api_keys WHERE id = ?"),
+  apiKeyByHash: db.prepare("SELECT * FROM api_keys WHERE key_hash = ? AND revoked_at IS NULL"),
+  insertApiKey: db.prepare("INSERT INTO api_keys (name, key_hash, prefix, created_by) VALUES (?, ?, ?, ?)"),
+  touchApiKey: db.prepare("UPDATE api_keys SET last_used_at = datetime('now') WHERE id = ?"),
+  revokeApiKey: db.prepare("UPDATE api_keys SET revoked_at = datetime('now') WHERE id = ? AND revoked_at IS NULL"),
 };
+
+// ─── API keys ─────────────────────────────────────────────────────────────
+
+const API_KEY_PREFIX = "wab_";
+
+// What a key may call. Chats, transcripts, AI analysis, linking or removing numbers, and user or key
+// management stay with signed-in people: a key that leaks must not expose customer conversations.
+const API_KEY_ROUTES = [
+  ["GET", /^\/api\/limits$/],
+  ["GET", /^\/api\/sessions$/],
+  ["GET", /^\/api\/sessions\/[^/]+$/],
+  ["POST", /^\/api\/send$/],
+  ["POST", /^\/api\/quick-send$/],
+  ["POST", /^\/api\/upload$/],
+  ["POST", /^\/api\/preview$/],
+  ["POST", /^\/api\/blast$/],
+  ["GET", /^\/api\/blast\/[^/]+\/stats$/],
+  ["GET", /^\/api\/status$/],
+  ["POST", /^\/api\/cancel$/],
+  ["POST", /^\/api\/clear$/],
+  ["GET", /^\/api\/history$/],
+  ["GET", /^\/api\/history\/[^/]+$/],
+];
+const apiKeyMayCall = (method, path) =>
+  path !== "/api/sessions/archived" && API_KEY_ROUTES.some(([m, re]) => m === method && re.test(path));
+
+function readApiKey(req) {
+  const header = String(req.headers["x-api-key"] || req.headers.authorization?.replace(/^Bearer\s+/i, "") || "").trim();
+  return header.startsWith(API_KEY_PREFIX) ? header : null;
+}
+
+const publicApiKey = (k) => ({
+  id: k.id,
+  name: k.name,
+  prefix: k.prefix,
+  createdBy: k.created_by,
+  createdAt: k.created_at,
+  lastUsedAt: k.last_used_at,
+  revokedAt: k.revoked_at,
+});
 
 // ─── Passwords ────────────────────────────────────────────────────────────
 
@@ -396,8 +454,23 @@ export function mountAuth(app, logger) {
   app.use((req, res, next) => {
     // These two carry their own protection or expose nothing private.
     if (req.path === "/health" || req.path === "/api/backup") return next();
-    const user = currentUser(req);
     const isApi = req.path.startsWith("/api/");
+    const apiKey = readApiKey(req);
+    if (apiKey) {
+      const key = q.apiKeyByHash.get(hashToken(apiKey));
+      if (!key) {
+        logger.warn({ path: req.path }, "Request with an unknown or revoked API key");
+        return res.status(401).json({ error: "Kunci API tidak dikenal atau sudah dicabut." });
+      }
+      if (!isApi || !apiKeyMayCall(req.method, req.path)) {
+        return res.status(403).json({ error: "Kunci API tidak boleh memakai fitur ini." });
+      }
+      q.touchApiKey.run(key.id);
+      // Shown in the send history as the sender, so a send from another system can be traced to its key.
+      req.user = { id: null, email: `api:${key.name}`, name: key.name, role: "member", apiKeyId: key.id };
+      return next();
+    }
+    const user = currentUser(req);
     if (!user) return isApi ? res.status(401).json({ error: "Silakan masuk dulu." }) : res.redirect("/login");
     if (mustChangeNow(user) && req.path !== "/api/auth/password") {
       return isApi
@@ -472,5 +545,28 @@ export function mountAuth(app, logger) {
     q.deleteUserSessions.run(target.id);
     logger.info({ email: target.email, by: req.user.email }, "Password reset");
     res.json({ temporaryPassword: password });
+  });
+
+  // ── API keys (admin) ──
+  app.get("/api/api-keys", adminOnly, (_req, res) => {
+    res.json(q.listApiKeys.all().map(publicApiKey));
+  });
+
+  app.post("/api/api-keys", adminOnly, (req, res) => {
+    const name = String(req.body?.name || "").trim().slice(0, 80);
+    if (!name) return res.status(400).json({ error: "Isi nama aplikasi yang akan memakai kunci ini." });
+    const key = API_KEY_PREFIX + randomBytes(32).toString("base64url");
+    const info = q.insertApiKey.run(name, hashToken(key), key.slice(0, API_KEY_PREFIX.length + 6), req.user.email);
+    logger.info({ name, by: req.user.email }, "API key created");
+    // The key itself is returned only here; afterwards only its hash exists.
+    res.json({ apiKey: publicApiKey(q.apiKeyById.get(info.lastInsertRowid)), key });
+  });
+
+  app.delete("/api/api-keys/:id", adminOnly, (req, res) => {
+    const key = q.apiKeyById.get(Number(req.params.id));
+    if (!key) return res.status(404).json({ error: "Kunci API tidak ditemukan." });
+    q.revokeApiKey.run(key.id);
+    logger.info({ name: key.name, by: req.user.email }, "API key revoked");
+    res.json({ apiKey: publicApiKey(q.apiKeyById.get(key.id)) });
   });
 }
