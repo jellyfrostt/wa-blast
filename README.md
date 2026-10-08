@@ -100,6 +100,17 @@ Without `AUTH_ENABLED=true` all endpoints are unauthenticated.
 | POST | `/api/users` | Admin: create `{name, email, role}`; returns a one-time password |
 | PATCH | `/api/users/:id` | Admin: `{role?, active?}`; the last admin cannot be removed |
 | POST | `/api/users/:id/reset-password` | Admin: new one-time password, signs the user out |
+| GET | `/api/api-keys` | Admin: list API keys (never the key itself) |
+| POST | `/api/api-keys` | Admin: create `{name}`; returns the key once |
+| DELETE | `/api/api-keys/:id` | Admin: revoke a key; it stops working at once |
+
+### API keys for other apps
+
+When login is on, another system can call the API with an admin-created key in `X-API-Key: wab_...` or `Authorization: Bearer wab_...`. Only the SHA-256 of a key is stored. A key may call `GET /api/limits`, `GET /api/sessions`, `GET /api/sessions/:id`, the Sending endpoints below, `GET /api/blast/:jobId/stats`, and `GET /api/history[/:id]`; anything else (chats, transcripts, insights, adding or removing numbers, users, keys, pages) answers 403. An unknown or revoked key answers 401. Sends made with a key are recorded in history as `api:<key name>`.
+
+```
+curl -X POST "$PUBLIC_URL/api/send" -H "X-API-Key: wab_..." -H "Content-Type: application/json"   -d '{"phone":"081234567890","message":"Hello","sessionId":"s_..."}'
+```
 
 ### Numbers
 

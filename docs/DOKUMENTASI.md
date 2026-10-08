@@ -58,7 +58,7 @@ Semua pengiriman lewat Kirim Pesan dan Kirim Cepat: nomor pengirim, waktu mulai 
 
 ### Pengguna (hanya admin, hanya saat login aktif)
 
-Membuat akun untuk orang yang emailnya di luar domain kantor, mengatur ulang password, mengubah peran, dan menonaktifkan akun.
+Membuat akun untuk orang yang emailnya di luar domain kantor, mengatur ulang password, mengubah peran, dan menonaktifkan akun. Di halaman yang sama admin membuat dan mencabut kunci API untuk aplikasi lain (lihat bagian 5).
 
 ### Bantuan
 
@@ -128,6 +128,24 @@ Pindah domain kantor (dari `@pintarnya.com` ke `@pandai-group.com`):
 Riwayat pengiriman tetap mencatat alamat yang dipakai saat itu.
 
 Tanpa langkah 2, tombol Google tidak muncul dan hanya email dan password yang bisa dipakai.
+
+### Kunci API untuk aplikasi lain
+
+Aplikasi lain (misalnya LMS) bisa mengirim WhatsApp lewat WA Blast tanpa login Google, memakai kunci API. Login orang tetap lewat Google atau email dan password; kunci API hanya untuk sistem.
+
+- Admin membuat kunci di menu Pengguna, bagian Kunci API, dengan nama aplikasinya. Kunci tampil sekali saja; yang disimpan hanya sidik acaknya (hash), jadi kunci yang hilang tidak bisa dilihat lagi, harus dibuat baru.
+- Buat satu kunci per aplikasi. Kunci bisa dicabut kapan saja dan langsung berhenti berlaku. Di daftar terlihat kapan kunci terakhir dipakai.
+- Kunci hanya bisa: melihat daftar nomor dan statusnya, mengirim satu pesan atau kirim cepat, unggah kontak dan blast beserta status, berhenti, dan statistiknya, serta membaca riwayat pengiriman. Kunci tidak bisa membaca percakapan dan transkrip pelanggan, memakai analisis AI, menambah atau menghapus nomor, atau mengelola pengguna dan kunci.
+- Di Riwayat, pengiriman dari kunci tercatat atas nama `api:<nama aplikasi>`.
+- Kunci disimpan di pengaturan server aplikasi pemakai, bukan di kode halaman web, karena siapa pun yang memegang kunci bisa mengirim pesan atas nama nomor kantor.
+
+Contoh dari aplikasi lain:
+
+```
+curl -X POST https://whatsapp-service-production-7a29.up.railway.app/api/send   -H "X-API-Key: wab_..." -H "Content-Type: application/json"   -d '{"phone":"081234567890","message":"Halo dari LMS","sessionId":"s_..."}'
+```
+
+`sessionId` diambil dari `GET /api/sessions`. Tanpa `sessionId`, pesan dikirim dari nomor pertama yang tersambung. Header `Authorization: Bearer wab_...` juga diterima. Daftar lengkap alamat API ada di README.
 
 ## 6. Data
 
